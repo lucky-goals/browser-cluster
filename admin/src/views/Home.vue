@@ -61,27 +61,41 @@
       </div>
       <div class="arch-container">
         <div class="arch-step">
-          <div class="step-icon"><Connection /></div>
-          <h4>API Gateway</h4>
-          <p>FastAPI 高性能接口，支持同步/异步任务提交</p>
+          <div class="step-card">
+            <div class="step-icon"><Connection /></div>
+            <h4>Unified Gateway</h4>
+            <p>基于 FastAPI 的高性能异步接口，提供鉴权、流控与任务调度入口。</p>
+          </div>
         </div>
-        <div class="arch-connector"><ArrowRight /></div>
-        <div class="arch-step">
-          <div class="step-icon"><Operation /></div>
-          <h4>RabbitMQ</h4>
-          <p>可靠的消息队列，实现任务分发与负载均衡</p>
+        <div class="arch-connector">
+          <div class="connector-icon"><ArrowRight /></div>
         </div>
-        <div class="arch-connector"><ArrowRight /></div>
         <div class="arch-step">
-          <div class="step-icon"><Cpu /></div>
-          <h4>Worker Nodes</h4>
-          <p>多节点分布式部署，Playwright 集群渲染</p>
+          <div class="step-card">
+            <div class="step-icon"><Operation /></div>
+            <h4>Task Queue</h4>
+            <p>RabbitMQ 实现任务削峰填谷，确保高并发下的系统稳定性与可靠投递。</p>
+          </div>
         </div>
-        <div class="arch-connector"><ArrowRight /></div>
+        <div class="arch-connector">
+          <div class="connector-icon"><ArrowRight /></div>
+        </div>
         <div class="arch-step">
-          <div class="step-icon"><Files /></div>
-          <h4>Storage & Cache</h4>
-          <p>MongoDB 持久化任务，Redis 高效缓存结果</p>
+          <div class="step-card">
+            <div class="step-icon"><Cpu /></div>
+            <h4>Browser Cluster</h4>
+            <p>分布式 Playwright 节点，支持隐身模式、指纹混淆与动态扩缩容。</p>
+          </div>
+        </div>
+        <div class="arch-connector">
+          <div class="connector-icon"><ArrowRight /></div>
+        </div>
+        <div class="arch-step">
+          <div class="step-card">
+            <div class="step-icon"><Files /></div>
+            <h4>Data Persistence</h4>
+            <p>MongoDB 存储完整任务链路，Redis 提供毫秒级结果缓存与状态同步。</p>
+          </div>
         </div>
       </div>
     </div>
@@ -234,7 +248,7 @@ const openDocs = () => {
 /* Section Titles */
 .section-title {
   text-align: center;
-  margin: 80px 0 40px;
+  margin: 20px 0 20px;
 }
 
 .section-title h2 {
@@ -296,54 +310,122 @@ const openDocs = () => {
 /* Architecture Section */
 .architecture-section {
   margin-top: 100px;
-  padding: 60px 40px;
-  background: white;
-  border-radius: 24px;
-  border: 1px solid #ebeef5;
+  padding: 80px 0;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  position: relative;
+  overflow: hidden;
 }
 
 .arch-container {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-top: 40px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 60px;
+  position: relative;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .arch-step {
-  flex: 1;
+  position: relative;
+  z-index: 2;
+  width: 220px;
+}
+
+.step-card {
+  background: white;
+  padding: 30px 20px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
-  padding: 0 20px;
+}
+
+.step-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-color: #bfdbfe;
 }
 
 .step-icon {
-  width: 64px;
-  height: 64px;
-  background: #f0f7ff;
-  color: #409EFF;
-  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  background: #eff6ff;
+  color: #3b82f6;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 20px;
   font-size: 28px;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.step-card:hover .step-icon {
+  background: #3b82f6;
+  color: white;
+  transform: scale(1.1) rotate(5deg);
 }
 
 .arch-step h4 {
-  margin-bottom: 12px;
-  color: #303133;
+  margin: 0 0 8px;
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .arch-step p {
-  font-size: 14px;
-  color: #606266;
-  line-height: 1.4;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .arch-connector {
-  padding-top: 24px;
-  color: #dcdfe6;
-  font-size: 24px;
+  flex: 1;
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0 10px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arch-connector::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+  transform: translateY(-50%);
+  background-size: 200% 100%;
+  animation: flowLine 2s linear infinite;
+  opacity: 0.5;
+}
+
+.connector-icon {
+  width: 24px;
+  height: 24px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 12px;
+  z-index: 1;
+  position: relative;
+}
+
+@keyframes flowLine {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 /* Animations */
@@ -386,10 +468,37 @@ const openDocs = () => {
     flex-direction: column;
     gap: 40px;
   }
+  
+  .arch-step {
+    width: 100%;
+    max-width: 320px;
+  }
+  
   .arch-connector {
+    width: 2px;
+    height: 60px;
+    margin: 0;
+  }
+  
+  .arch-connector::after {
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(180deg, transparent, #3b82f6, transparent);
+    background-size: 100% 200%;
+    animation: flowLineVertical 2s linear infinite;
+  }
+  
+  @keyframes flowLineVertical {
+    0% { background-position: 0 100%; }
+    100% { background-position: 0 -100%; }
+  }
+  
+  .connector-icon {
     transform: rotate(90deg);
+  }
+  .arch-connector {
+    transform: none; /* Reset old rotation */
     padding: 0;
-    margin: -20px auto;
   }
 }
 </style>
