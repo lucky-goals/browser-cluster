@@ -67,10 +67,12 @@ Thumbs.db
 htmlcov/
 .pytest_cache/
 
+# Documentation
+DEVELOPMENT_PLAN.md
+
 # MyPy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 data/*
 
-DEVELOPMENT_PLAN.md
