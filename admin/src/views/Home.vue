@@ -162,7 +162,7 @@ const features = [
 ]
 
 const openDocs = () => {
-  window.open('https://github.com/your-repo/browser-cluster', '_blank')
+  window.open('https://github.com/934050259/BrowserCluster', '_blank')
 }
 </script>
 
