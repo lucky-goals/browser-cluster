@@ -200,10 +200,7 @@ const handleCommand = (command) => {
 onMounted(() => {
   if (!isLoginPage.value) {
     statsStore.fetchStats()
-    // 每 30 秒更新一次统计数据
-    setInterval(() => {
-      statsStore.fetchStats()
-    }, 30000)
+    // 取消自动刷新：删除了每 30 秒更新统计数据的定时器
   }
 })
 </script>
