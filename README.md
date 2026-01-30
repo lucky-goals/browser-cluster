@@ -47,8 +47,8 @@
    ```bash
    git clone https://github.com/934050259/BrowserCluster.git
    cd browser-cluster
-   pip install -r requirements.txt
-   playwright install chromium
+   uv sync
+   uv run playwright install chromium
    ```
 
 2. **配置数据库**
@@ -57,9 +57,9 @@
 3. **启动服务**
    ```bash
    # 启动 API
-   uvicorn app.main:app --reload
+   uv run uvicorn app.main:app --reload
    # 启动 Worker (推荐在不同终端或后台运行)
-   python scripts/run_worker.py
+   uv run python scripts/run_worker.py
    ```
 
 4. **启动前端**
