@@ -75,5 +75,7 @@ DEVELOPMENT_PLAN.md
 .mypy_cache/
 .dmypy.json
 dmypy.json
+# Data folder (ignore contents but keep folder)
 data/*
+!data/.gitkeep
 
