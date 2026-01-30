@@ -6,6 +6,8 @@ import Configs from '../views/Configs.vue'
 import Nodes from '../views/Nodes.vue'
 import Login from '../views/Login.vue'
 import Users from '../views/Users.vue'
+import LLMModels from '../views/LLMModels.vue'
+import PromptTemplates from '../views/PromptTemplates.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
@@ -15,7 +17,9 @@ const routes = [
   { path: '/stats', component: Stats },
   { path: '/configs', component: Configs, meta: { adminOnly: true } },
   { path: '/nodes', component: Nodes, meta: { adminOnly: true } },
-  { path: '/users', component: Users, meta: { adminOnly: true } }
+  { path: '/users', component: Users, meta: { adminOnly: true } },
+  { path: '/llm-models', component: LLMModels, meta: { adminOnly: true } },
+  { path: '/prompt-templates', component: PromptTemplates }
 ]
 
 const router = createRouter({

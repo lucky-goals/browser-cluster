@@ -51,6 +51,20 @@
             <el-icon><Setting /></el-icon>
             <template #title>系统设置</template>
           </el-menu-item>
+          <el-sub-menu index="agent-settings">
+            <template #title>
+              <el-icon><MagicStick /></el-icon>
+              <span>Agent 设置</span>
+            </template>
+            <el-menu-item index="llm-models" v-if="isAdmin">
+              <el-icon><Cpu /></el-icon>
+              <template #title>模型设置</template>
+            </el-menu-item>
+            <el-menu-item index="prompt-templates">
+              <el-icon><Document /></el-icon>
+              <template #title>提示词模板</template>
+            </el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </el-aside>
 
@@ -131,7 +145,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { 
-  House, List, DataLine, Monitor, Setting, User,
+  House, List, DataLine, Monitor, Setting, User, Cpu, Document, MagicStick,
   Expand, Fold, CircleCheck, CircleClose 
 } from '@element-plus/icons-vue'
 import { useStatsStore } from './stores/stats'
@@ -162,7 +176,8 @@ const currentRouteName = computed(() => {
     '/stats': '数据统计',
     '/nodes': '节点管理',
     '/configs': '系统设置',
-    '/users': '用户管理'
+    '/users': '用户管理',
+    '/llm-models': '模型设置'
   }
   return names[path] || '未知'
 })

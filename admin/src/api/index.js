@@ -177,3 +177,60 @@ export const deleteNode = async (nodeId) => {
 export const getNodeLogs = (nodeId, params) => {
   return api.get(`/nodes/${nodeId}/logs`, { params, responseType: 'text' })
 }
+
+// LLM Models API
+export const getLLMModels = async (params) => {
+  const response = await api.get('/llm/models', { params })
+  return response.data
+}
+
+export const getLLMModel = async (modelId) => {
+  const response = await api.get(`/llm/models/${modelId}`)
+  return response.data
+}
+
+export const createLLMModel = async (data) => {
+  const response = await api.post('/llm/models', data)
+  return response.data
+}
+
+export const updateLLMModel = async (modelId, data) => {
+  const response = await api.put(`/llm/models/${modelId}`, data)
+  return response.data
+}
+
+export const deleteLLMModel = async (modelId) => {
+  const response = await api.delete(`/llm/models/${modelId}`)
+  return response.data
+}
+
+export const testLLMModel = async (modelId) => {
+  const response = await api.post(`/llm/models/${modelId}/test`)
+  return response.data
+}
+
+// Prompt Templates API
+export const getPromptTemplates = async (params) => {
+  const response = await api.get('/prompt-templates', { params })
+  return response.data
+}
+
+export const getPromptTemplate = async (templateId) => {
+  const response = await api.get(`/prompt-templates/${templateId}`)
+  return response.data
+}
+
+export const createPromptTemplate = async (data) => {
+  const response = await api.post('/prompt-templates', data)
+  return response.data
+}
+
+export const updatePromptTemplate = async (templateId, data) => {
+  const response = await api.put(`/prompt-templates/${templateId}`, data)
+  return response.data
+}
+
+export const deletePromptTemplate = async (templateId) => {
+  const response = await api.delete(`/prompt-templates/${templateId}`)
+  return response.data
+}

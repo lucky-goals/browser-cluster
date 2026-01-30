@@ -3,6 +3,7 @@
 
 使用 Playwright 进行网页渲染和抓取
 """
+
 import time
 import base64
 import re
@@ -17,10 +18,7 @@ class Scraper:
     """网页抓取器"""
 
     async def scrape(
-        self,
-        url: str,
-        params: Dict[str, Any],
-        node_id: str
+        self, url: str, params: Dict[str, Any], node_id: str
     ) -> Dict[str, Any]:
         """
         抓取网页内容
@@ -43,17 +41,14 @@ class Scraper:
         try:
             # 获取 User-Agent
             user_agent = params.get("user_agent") or settings.user_agent
-            
+
             # 处理代理配置
             proxy_config = params.get("proxy")
             browser = await browser_manager.get_browser()
 
             # 创建浏览器上下文参数
-            context_options = {
-                "java_script_enabled": True,
-                "user_agent": user_agent
-            }
-            
+            context_options = {"java_script_enabled": True, "user_agent": user_agent}
+
             if proxy_config:
                 context_options["proxy"] = {
                     "server": proxy_config.get("server"),
@@ -81,14 +76,13 @@ class Scraper:
             if intercept_apis:
                 intercept_continue = params.get("intercept_continue", False)
                 await self._setup_api_interception(
-                    page, 
-                    intercept_apis, 
-                    intercepted_data, 
-                    intercept_continue
+                    page, intercept_apis, intercepted_data, intercept_continue
                 )
 
             # 拦截资源（图片、媒体等）
-            if params.get("block_images", settings.block_images) or params.get("block_media", settings.block_media):
+            if params.get("block_images", settings.block_images) or params.get(
+                "block_media", settings.block_media
+            ):
                 await self._block_resources(page, params)
 
             # 获取等待策略和超时设置
@@ -99,19 +93,15 @@ class Scraper:
             # 导航到目标 URL
             response = None
             try:
-                response = await page.goto(
-                    url,
-                    wait_until=wait_for,
-                    timeout=timeout
-                )
+                response = await page.goto(url, wait_until=wait_for, timeout=timeout)
             except PlaywrightTimeoutError:
                 # 超时容错：如果已经有响应或页面有内容，则继续
                 if not page.is_closed():
                     html_preview = await page.content()
-                    if len(html_preview) > 200: # 认为页面已经加载了部分内容
+                    if len(html_preview) > 200:  # 认为页面已经加载了部分内容
                         pass
                     else:
-                        raise # 页面内容太少，还是抛出超时异常
+                        raise  # 页面内容太少，还是抛出超时异常
 
             # 等待特定选择器
             if params.get("selector"):
@@ -127,7 +117,7 @@ class Scraper:
 
             # 获取页面 HTML
             html = await page.content()
-            actual_url = page.url # 获取重定向后的实际 URL
+            actual_url = page.url  # 获取重定向后的实际 URL
 
             # 计算加载时间
             load_time = time.time() - start_time
@@ -141,7 +131,7 @@ class Scraper:
                     status_code = response.status
                 else:
                     # 如果 response 为空（超时），尝试从 main_frame 获取
-                    status_code = 200 # 默认为 200，因为我们能拿到内容
+                    status_code = 200  # 默认为 200，因为我们能拿到内容
             except:
                 pass
 
@@ -167,13 +157,23 @@ class Scraper:
                     "actual_url": actual_url,
                     "status_code": status_code,
                     "load_time": load_time,
-                    "timestamp": time.time()
-                }
+                    "timestamp": time.time(),
+                },
             }
 
             # 如果有拦截的接口数据，添加到结果中
             if intercepted_data:
                 result["intercepted_apis"] = intercepted_data
+
+            # 如果启用了 Agent 识别，执行内容提取
+            if params.get("agent_enabled") and params.get("agent_model_id"):
+                agent_result = await self._run_agent_extraction(
+                    html=html,
+                    screenshot=screenshot,
+                    model_id=params["agent_model_id"],
+                    user_prompt=params.get("agent_prompt", ""),
+                )
+                result["agent_result"] = agent_result
 
             return result
 
@@ -182,15 +182,12 @@ class Scraper:
             load_time = time.time() - start_time
             error_result = {
                 "status": "failed",
-                "error": {
-                    "message": str(e),
-                    "type": type(e).__name__
-                },
+                "error": {"message": str(e), "type": type(e).__name__},
                 "metadata": {
                     "url": url,
                     "load_time": load_time,
-                    "timestamp": time.time()
-                }
+                    "timestamp": time.time(),
+                },
             }
 
             # 如果有拦截的接口数据，也添加到错误结果中
@@ -213,7 +210,7 @@ class Scraper:
         page,
         api_patterns: List[str],
         intercepted_data: Dict[str, Any],
-        continue_after_intercept: bool = False
+        continue_after_intercept: bool = False,
     ):
         """
         设置接口拦截
@@ -224,6 +221,7 @@ class Scraper:
             intercepted_data: 用于存储拦截数据的字典
             continue_after_intercept: 拦截并获取数据后，是否继续执行后续请求（默认 False）
         """
+
         def url_matches_pattern(url: str, pattern: str) -> bool:
             """
             检查 URL 是否匹配模式
@@ -304,6 +302,7 @@ class Scraper:
             page: Playwright 页面对象
             params: 抓取参数
         """
+
         async def route_handler(route, request):
             """路由处理函数"""
             resource_type = request.resource_type
@@ -312,7 +311,11 @@ class Scraper:
             if params.get("block_images") and resource_type == "image":
                 await route.abort()
             # 拦截媒体资源和字体、css
-            elif params.get("block_media") and resource_type in ["media", "font", "stylesheet"]:
+            elif params.get("block_media") and resource_type in [
+                "media",
+                "font",
+                "stylesheet",
+            ]:
                 await route.abort()
             # 继续加载其他资源
             else:
@@ -320,6 +323,40 @@ class Scraper:
 
         # 注册路由处理器
         await page.route("**/*", route_handler)
+
+    async def _run_agent_extraction(
+        self, html: str, screenshot: str, model_id: str, user_prompt: str
+    ) -> dict:
+        """
+        运行 Agent 内容提取
+
+        Args:
+            html: 网页 HTML 内容
+            screenshot: 截图 base64 编码
+            model_id: LLM 模型 ID
+            user_prompt: 用户的提取要求
+
+        Returns:
+            dict: Agent 提取结果
+        """
+        from app.services.llm_agent import get_llm_agent
+        from app.models.llm import AgentResult, AgentStatus
+
+        try:
+            agent = await get_llm_agent(model_id)
+            if not agent:
+                return AgentResult(
+                    status=AgentStatus.FAILED,
+                    error=f"Model {model_id} not found or disabled",
+                ).model_dump()
+
+            result = await agent.extract_content(
+                html=html, screenshot_base64=screenshot, user_prompt=user_prompt
+            )
+            return result.model_dump()
+
+        except Exception as e:
+            return AgentResult(status=AgentStatus.FAILED, error=str(e)).model_dump()
 
 
 # 全局抓取器实例

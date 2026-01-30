@@ -3,6 +3,7 @@ MongoDB 数据库连接管理模块
 
 提供 MongoDB 的单例连接管理，包含数据库连接、集合访问等功能
 """
+
 from pymongo import MongoClient
 from app.core.config import settings
 
@@ -90,6 +91,26 @@ class MongoDB:
             Collection: nodes 集合
         """
         return self.db.nodes
+
+    @property
+    def llm_models(self):
+        """
+        获取 LLM 模型配置集合
+
+        Returns:
+            Collection: llm_models 集合
+        """
+        return self.db.llm_models
+
+    @property
+    def prompt_templates(self):
+        """
+        获取提示词模板集合
+
+        Returns:
+            Collection: prompt_templates 集合
+        """
+        return self.db.prompt_templates
 
 
 # 全局 MongoDB 实例

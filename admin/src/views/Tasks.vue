@@ -226,183 +226,251 @@
       class="bento-dialog"
     >
       <el-form :model="scrapeForm" label-width="100px" label-position="top">
-        <div class="bento-grid">
-          <!-- 1. 目标与基础 (占据较大空间) -->
-          <el-card shadow="hover" class="bento-item target-card">
-            <template #header>
-              <div class="bento-header">
-                <div class="header-icon-box target">
-                  <el-icon><Link /></el-icon>
+        <!-- 顶部固定区域：基础配置 -->
+        <el-card shadow="never" class="basic-config-card">
+          <el-row :gutter="20">
+            <el-col :span="14">
+              <el-form-item label="目标 URL" required class="mb-0">
+                <el-input v-model="scrapeForm.url" placeholder="https://example.com" clearable>
+                  <template #prefix><el-icon><Connection /></el-icon></template>
+                </el-input>
+              </el-form-item>
+            </el-col>
+            <el-col :span="5">
+              <el-form-item label="任务优先级" class="mb-0">
+                <el-select v-model="scrapeForm.priority" style="width: 100%">
+                  <el-option label="最高 (10)" :value="10" />
+                  <el-option label="普通 (5)" :value="5" />
+                  <el-option label="最低 (1)" :value="1" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="5">
+              <el-form-item label="数据缓存" class="mb-0">
+                <div class="compact-switch-wrapper">
+                  <el-switch v-model="scrapeForm.cache.enabled" />
+                  <span class="status-text">{{ scrapeForm.cache.enabled ? '开启' : '关闭' }}</span>
                 </div>
-                <div class="header-text">
-                  <span class="main-title">目标配置</span>
-                  <span class="sub-title">设置抓取地址与优先级</span>
-                </div>
-              </div>
-            </template>
-            <el-form-item label="目标 URL" required>
-              <el-input v-model="scrapeForm.url" placeholder="https://example.com" clearable>
-                <template #prefix><el-icon><Connection /></el-icon></template>
-              </el-input>
-            </el-form-item>
-            <el-row :gutter="15">
-              <el-col :span="14">
-                <el-form-item label="任务优先级">
-                  <el-select v-model="scrapeForm.priority" style="width: 100%">
-                    <el-option label="最高 (10)" :value="10" />
-                    <el-option label="普通 (5)" :value="5" />
-                    <el-option label="最低 (1)" :value="1" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="10">
-                <el-form-item label="数据缓存">
-                  <div class="compact-switch">
-                    <el-switch v-model="scrapeForm.cache.enabled" />
-                    <span class="status-text">{{ scrapeForm.cache.enabled ? '开启' : '关闭' }}</span>
-                  </div>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="缓存时长 (TTL)" v-if="scrapeForm.cache.enabled">
-              <el-input-number v-model="scrapeForm.cache.ttl" :min="60" :step="60" style="width: 100%" />
-            </el-form-item>
-          </el-card>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row v-if="scrapeForm.cache.enabled" style="margin-top: 15px;">
+            <el-col :span="24">
+              <el-form-item label="缓存时长 (秒)" class="mb-0">
+                <el-input-number v-model="scrapeForm.cache.ttl" :min="60" :step="60" style="width: 200px" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </el-card>
 
-          <!-- 2. 加载与性能 -->
-          <el-card shadow="hover" class="bento-item performance-card">
-            <template #header>
-              <div class="bento-header">
-                <div class="header-icon-box performance">
-                  <el-icon><Timer /></el-icon>
-                </div>
-                <div class="header-text">
-                  <span class="main-title">加载策略</span>
-                  <span class="sub-title">控制等待与超时</span>
-                </div>
-              </div>
-            </template>
-            <el-form-item>
+        <!-- 底部 Tab 区域 -->
+        <div class="scrape-tabs-container">
+          <el-tabs v-model="scrapeActiveTab" type="border-card">
+            <!-- Tab 1: 浏览器配置 -->
+            <el-tab-pane name="browser">
               <template #label>
-                <div class="label-with-tip">
-                  <span>等待条件</span>
-                  <el-tooltip content="控制浏览器在何时认为页面已加载完成" placement="top">
-                    <el-icon class="help-icon"><QuestionFilled /></el-icon>
-                  </el-tooltip>
+                <div class="tab-label">
+                  <el-icon><Monitor /></el-icon>
+                  <span>浏览器配置</span>
                 </div>
               </template>
-              <el-select v-model="scrapeForm.params.wait_for" style="width: 100%" :teleported="false">
-                <el-option label="Network Idle" value="networkidle">
-                  <div class="option-item">
-                    <span class="option-label">Network Idle</span>
-                    <span class="option-desc">等待网络连接停止，适用于单页应用</span>
-                  </div>
-                </el-option>
-                <el-option label="Page Load" value="load">
-                  <div class="option-item">
-                    <span class="option-label">Page Load</span>
-                    <span class="option-desc">等待整个页面及所有资源加载完成</span>
-                  </div>
-                </el-option>
-                <el-option label="DOM Ready" value="domcontentloaded">
-                  <div class="option-item">
-                    <span class="option-label">DOM Ready</span>
-                    <span class="option-desc">仅等待 HTML 文档解析完成</span>
-                  </div>
-                </el-option>
-              </el-select>
-            </el-form-item>
-            <el-form-item label="超时时间 (ms)">
-              <el-input-number v-model="scrapeForm.params.timeout" :min="5000" :step="5000" style="width: 100%" />
-            </el-form-item>
-            <el-form-item label="额外等待 (ms)">
-              <el-input-number v-model="scrapeForm.params.wait_time" :min="0" :step="500" style="width: 100%" />
-            </el-form-item>
-          </el-card>
-
-          <!-- 3. 浏览器特征 -->
-          <el-card shadow="hover" class="bento-item browser-card">
-            <template #header>
-              <div class="bento-header">
-                <div class="header-icon-box browser">
-                  <el-icon><Monitor /></el-icon>
+              
+              <div class="tab-content-grid">
+                <!-- 加载策略 -->
+                <div class="config-section">
+                  <div class="section-title">加载策略</div>
+                  <el-form-item label="等待条件">
+                    <el-select v-model="scrapeForm.params.wait_for" style="width: 100%" :teleported="false">
+                      <el-option label="Network Idle" value="networkidle" />
+                      <el-option label="Page Load" value="load" />
+                      <el-option label="DOM Ready" value="domcontentloaded" />
+                    </el-select>
+                  </el-form-item>
+                  <el-row :gutter="15">
+                    <el-col :span="12">
+                      <el-form-item label="超时 (ms)">
+                        <el-input-number v-model="scrapeForm.params.timeout" :min="5000" :step="5000" style="width: 100%" controls-position="right" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="额外等待 (ms)">
+                        <el-input-number v-model="scrapeForm.params.wait_time" :min="0" :step="500" style="width: 100%" controls-position="right" />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
                 </div>
-                <div class="header-text">
-                  <span class="main-title">环境模拟</span>
-                  <span class="sub-title">伪装浏览器特征</span>
+
+                <!-- 环境模拟 -->
+                <div class="config-section">
+                  <div class="section-title">环境模拟</div>
+                  <el-form-item label="视口尺寸 (宽 × 高)">
+                    <div class="viewport-group">
+                      <el-input-number v-model="scrapeForm.params.viewport.width" :min="320" controls-position="right" />
+                      <span class="v-sep">×</span>
+                      <el-input-number v-model="scrapeForm.params.viewport.height" :min="240" controls-position="right" />
+                    </div>
+                  </el-form-item>
+                  <div class="feature-grid mini">
+                    <div class="feature-cell">
+                      <span class="label">反检测</span>
+                      <el-switch v-model="scrapeForm.params.stealth" size="small" />
+                    </div>
+                    <div class="feature-cell">
+                      <span class="label">自动截图</span>
+                      <el-switch v-model="scrapeForm.params.screenshot" size="small" />
+                    </div>
+                    <div class="feature-cell" v-if="scrapeForm.params.screenshot">
+                      <span class="label">全屏截图</span>
+                      <el-switch v-model="scrapeForm.params.is_fullscreen" size="small" />
+                    </div>
+                    <div class="feature-cell">
+                      <span class="label">无图模式</span>
+                      <el-switch v-model="scrapeForm.params.block_images" size="small" />
+                    </div>
+                  </div>
                 </div>
               </div>
-            </template>
-            <el-form-item label="视口尺寸 (宽 × 高)">
-              <div class="viewport-group">
-                <el-input-number v-model="scrapeForm.params.viewport.width" :min="320" controls-position="right" />
-                <span class="v-sep">×</span>
-                <el-input-number v-model="scrapeForm.params.viewport.height" :min="240" controls-position="right" />
-              </div>
-            </el-form-item>
-            <div class="feature-grid">
-              <div class="feature-cell">
-                <span class="label">反检测 (Stealth)</span>
-                <el-switch v-model="scrapeForm.params.stealth" size="small" />
-              </div>
-              <div class="feature-cell">
-                <span class="label">自动截图</span>
-                <el-switch v-model="scrapeForm.params.screenshot" size="small" />
-              </div>
-              <div class="feature-cell" v-if="scrapeForm.params.screenshot">
-                <span class="label">全屏截图</span>
-                <el-switch v-model="scrapeForm.params.is_fullscreen" size="small" />
-              </div>
-              <div class="feature-cell">
-                <span class="label">无图模式</span>
-                <el-switch v-model="scrapeForm.params.block_images" size="small" />
-              </div>
-            </div>
-          </el-card>
+            </el-tab-pane>
 
-          <!-- 4. 代理与拦截 -->
-          <el-card shadow="hover" class="bento-item proxy-card">
-            <template #header>
-              <div class="bento-header">
-                <div class="header-icon-box proxy">
+            <!-- Tab 2: 高级选项 -->
+            <el-tab-pane name="proxy">
+              <template #label>
+                <div class="tab-label">
                   <el-icon><Lock /></el-icon>
+                  <span>高级选项</span>
                 </div>
-                <div class="header-text">
-                  <span class="main-title">高级选项</span>
-                  <span class="sub-title">代理与接口拦截</span>
+              </template>
+              
+              <div class="tab-content-flex">
+                <div class="config-section">
+                  <div class="section-title">代理设置</div>
+                  <el-form-item label="代理服务器 (可选)">
+                    <el-input v-model="scrapeForm.params.proxy.server" placeholder="http://proxy.com:8080" clearable />
+                  </el-form-item>
+                  <el-row :gutter="15" v-if="scrapeForm.params.proxy.server">
+                    <el-col :span="12">
+                      <el-form-item label="用户名">
+                        <el-input v-model="scrapeForm.params.proxy.username" placeholder="可选" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="密码">
+                        <el-input v-model="scrapeForm.params.proxy.password" type="password" placeholder="可选" show-password />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+                </div>
+
+                <div class="config-section">
+                  <div class="section-title">接口拦截</div>
+                  <el-form-item label="匹配模式">
+                    <el-select
+                      v-model="scrapeForm.params.intercept_apis"
+                      multiple
+                      filterable
+                      allow-create
+                      collapse-tags
+                      placeholder="如: */api/v1/*"
+                      style="width: 100%"
+                    />
+                  </el-form-item>
+                  <div class="form-tip">输入模式并回车即可添加多条拦截规则</div>
                 </div>
               </div>
-            </template>
-            <el-form-item label="代理服务器 (可选)">
-              <el-input v-model="scrapeForm.params.proxy.server" placeholder="http://proxy.com:8080" clearable />
-            </el-form-item>
-            <el-row :gutter="12" v-if="scrapeForm.params.proxy.server">
-              <el-col :span="12">
-                <el-form-item label="用户名">
-                  <el-input v-model="scrapeForm.params.proxy.username" placeholder="可选" clearable />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="密码">
-                  <el-input v-model="scrapeForm.params.proxy.password" type="password" placeholder="可选" show-password clearable />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="接口拦截模式">
-              <el-select
-                v-model="scrapeForm.params.intercept_apis"
-                multiple
-                filterable
-                allow-create
-                collapse-tags
-                placeholder="如: */api/v1/*"
-                style="width: 100%"
-              />
-            </el-form-item>
-            <div class="form-tip">输入模式并回车即可添加多条规则</div>
-          </el-card>
+            </el-tab-pane>
+
+            <!-- Tab 3: Agent AI -->
+            <el-tab-pane name="agent">
+              <template #label>
+                <div class="tab-label">
+                  <el-icon><MagicStick /></el-icon>
+                  <span>Agent 智能提取</span>
+                </div>
+              </template>
+              
+              <div class="agent-tab-content">
+                <div class="agent-header-row">
+                  <div class="section-title">Agent 设置</div>
+                  <div class="agent-enable-switch">
+                    <span class="switch-label">启用智能识别</span>
+                    <el-switch v-model="scrapeForm.params.agent_enabled" />
+                  </div>
+                </div>
+
+                <div v-if="scrapeForm.params.agent_enabled" class="agent-config-body">
+                  <el-row :gutter="20">
+                    <el-col :span="12">
+                      <el-form-item label="选择模型" required>
+                        <el-select v-model="scrapeForm.params.agent_model_id" style="width: 100%" placeholder="选择大模型">
+                          <el-option
+                            v-for="model in llmModels"
+                            :key="model._id"
+                            :label="model.name"
+                            :value="model._id"
+                          >
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                              <el-tag size="small" type="info" effect="plain">{{ model.provider }}</el-tag>
+                              <span>{{ model.name }}</span>
+                              <el-tag v-if="model.supports_vision" size="small" type="success" effect="plain">视觉</el-tag>
+                            </div>
+                          </el-option>
+                        </el-select>
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="使用模板">
+                        <div class="template-select-row">
+                          <el-select
+                            v-model="selectedTemplateId"
+                            filterable
+                            clearable
+                            :filter-method="filterTemplates"
+                            :loading="templateLoading"
+                            placeholder="搜索或选择模板..."
+                            popper-class="template-select-dropdown"
+                            style="flex: 1; margin-right: 8px;"
+                            @change="applyTemplate"
+                            @visible-change="handleTemplateDropdownVisible"
+                          >
+                            <el-option
+                              v-for="tpl in filteredTemplates"
+                              :key="tpl._id"
+                              :label="tpl.name"
+                              :value="tpl._id"
+                            >
+                              <div class="template-option">
+                                <span class="template-option-name">{{ tpl.name }}</span>
+                                <span class="template-option-preview">{{ tpl.content.substring(0, 30) }}...</span>
+                              </div>
+                            </el-option>
+                          </el-select>
+                          <el-button size="default" @click="loadAllTemplates" :icon="Refresh" circle />
+                        </div>
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+                  
+                  <el-form-item label="提取要求" required>
+                    <el-input
+                      v-model="scrapeForm.params.agent_prompt"
+                      type="textarea"
+                      :rows="6"
+                      placeholder="描述你想从页面提取的数据，例如：请提取房源标题、价格..."
+                    />
+                  </el-form-item>
+                </div>
+                
+                <div v-else class="agent-disabled-placeholder">
+                  <el-icon><InfoFilled /></el-icon>
+                  <p>开启 Agent 能够利用 AI 智能识别页面结构并提取数据</p>
+                  <el-button type="primary" plain @click="scrapeForm.params.agent_enabled = true">立即开启</el-button>
+                </div>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
         </div>
       </el-form>
+
       <template #footer>
         <div class="bento-footer">
           <el-button @click="showScrapeDialog = false" round>取消</el-button>
@@ -506,8 +574,125 @@
               <pre><code>{{ currentTask.result.html }}</code></pre>
             </div>
           </el-tab-pane>
+
+          <el-tab-pane label="Agent识别" name="agent" v-if="currentTask.result?.agent_result">
+            <div class="agent-result-section">
+              <!-- 状态概览 -->
+              <el-descriptions :column="3" border size="small" class="agent-status-desc">
+                <el-descriptions-item label="识别状态">
+                  <el-tag :type="getAgentStatusType(currentTask.result.agent_result.status)" effect="dark">
+                    {{ getAgentStatusText(currentTask.result.agent_result.status) }}
+                  </el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="使用模型">
+                  {{ currentTask.result.agent_result.model_name || '-' }}
+                </el-descriptions-item>
+                <el-descriptions-item label="处理耗时">
+                  <el-tag type="warning" effect="plain" v-if="currentTask.result.agent_result.processing_time">
+                    {{ currentTask.result.agent_result.processing_time.toFixed(2) }}s
+                  </el-tag>
+                  <span v-else>-</span>
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <!-- Token 使用量 -->
+              <div v-if="currentTask.result.agent_result.token_usage" class="token-usage-row">
+                <el-tag type="info" effect="plain" size="small">
+                  Prompt: {{ currentTask.result.agent_result.token_usage.prompt_tokens || 0 }}
+                </el-tag>
+                <el-tag type="info" effect="plain" size="small">
+                  Completion: {{ currentTask.result.agent_result.token_usage.completion_tokens || 0 }}
+                </el-tag>
+                <el-tag type="primary" effect="plain" size="small">
+                  Total: {{ currentTask.result.agent_result.token_usage.total_tokens || 0 }} tokens
+                </el-tag>
+              </div>
+
+              <!-- 错误信息 -->
+              <el-alert 
+                v-if="currentTask.result.agent_result.error" 
+                :title="currentTask.result.agent_result.error" 
+                type="error" 
+                :closable="false" 
+                show-icon
+                style="margin-top: 15px;"
+              />
+
+              <!-- 提取结果表格 -->
+              <div v-if="currentTask.result.agent_result.extracted_items?.length" class="extracted-results">
+                <el-divider content-position="left">
+                  <el-icon><Grid /></el-icon> 提取结果 ({{ currentTask.result.agent_result.extracted_items.length }} 条)
+                </el-divider>
+                <el-table :data="currentTask.result.agent_result.extracted_items" border stripe max-height="300" size="small">
+                  <el-table-column 
+                    v-for="(value, key) in currentTask.result.agent_result.extracted_items[0]" 
+                    :key="key" 
+                    :prop="key" 
+                    :label="key"
+                    min-width="120"
+                    show-overflow-tooltip
+                  />
+                </el-table>
+                
+                <div class="agent-actions">
+                  <el-button size="small" type="primary" @click="copyAgentJSON" :icon="DocumentCopy">
+                    复制 JSON
+                  </el-button>
+                  <el-button size="small" type="success" @click="exportAgentExcel" :icon="Download">
+                    导出 Excel
+                  </el-button>
+                </div>
+              </div>
+
+              <!-- 提取要求（用户提示词） -->
+              <div v-if="currentTask.result.agent_result.user_prompt" class="user-prompt-section">
+                <el-divider content-position="left">
+                  <el-icon><EditPen /></el-icon> 提取要求
+                </el-divider>
+                <div class="prompt-content">
+                  <pre>{{ currentTask.result.agent_result.user_prompt }}</pre>
+                </div>
+                <el-button 
+                  size="small" 
+                  type="warning" 
+                  @click="showSaveTemplateDialog"
+                  style="margin-top: 10px;"
+                >
+                  <el-icon><Collection /></el-icon> 保存为模板
+                </el-button>
+              </div>
+
+              <!-- 原始响应 -->
+              <el-collapse v-if="currentTask.result.agent_result.raw_response" style="margin-top: 15px;">
+                <el-collapse-item title="原始响应" name="raw">
+                  <pre class="raw-response">{{ currentTask.result.agent_result.raw_response }}</pre>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+          </el-tab-pane>
         </el-tabs>
       </div>
+    </el-dialog>
+
+    <!-- 保存为模板对话框 -->
+    <el-dialog v-model="showSaveTemplateDialogVisible" title="保存为模板" width="500px">
+      <el-form :model="saveTemplateForm" label-width="80px">
+        <el-form-item label="模板名称" required>
+          <el-input v-model="saveTemplateForm.name" placeholder="请输入模板名称" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input 
+            v-model="saveTemplateForm.description" 
+            type="textarea" 
+            :rows="2" 
+            placeholder="可选：简要描述此模板的用途" 
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showSaveTemplateDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmSaveTemplate">保存</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -515,17 +700,27 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Picture, WarningFilled, DeleteFilled, Setting, Connection, Monitor, Timer, Search, CopyDocument, View, VideoPlay, Link, Lock, Promotion, QuestionFilled, Cpu, Right } from '@element-plus/icons-vue'
-import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, retryTask, deleteTasksBatch } from '../api'
+import { Plus, Refresh, Picture, WarningFilled, DeleteFilled, Setting, Connection, Monitor, Timer, Search, CopyDocument, View, VideoPlay, Link, Lock, Promotion, QuestionFilled, Cpu, Right, MagicStick, InfoFilled, Download, DocumentCopy, Grid, EditPen, Collection } from '@element-plus/icons-vue'
+import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, retryTask, deleteTasksBatch, getLLMModels, getPromptTemplates, createPromptTemplate } from '../api'
 import dayjs from 'dayjs'
 
 const loading = ref(false)
 const tasks = ref([])
+const llmModels = ref([])
 const selectedTasks = ref([])
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const activeTab = ref('info')
+const scrapeActiveTab = ref('browser') // 新建任务对话框的当前 Tab
+
+// Prompt Templates
+const promptTemplates = ref([])
+const filteredTemplates = ref([])
+const selectedTemplateId = ref(null)
+const templateLoading = ref(false)
+const showSaveTemplateDialogVisible = ref(false)
+const saveTemplateForm = ref({ name: '', description: '' })
 
 const filterForm = ref({
   status: '',
@@ -601,7 +796,10 @@ const scrapeForm = ref({
     },
     stealth: true,
     intercept_apis: [],
-    intercept_continue: false
+    intercept_continue: false,
+    agent_enabled: false,
+    agent_model_id: null,
+    agent_prompt: ''
   },
   cache: {
     enabled: true,
@@ -789,7 +987,10 @@ const resetForm = () => {
       },
       stealth: true,
       intercept_apis: [],
-      intercept_continue: false
+      intercept_continue: false,
+      agent_enabled: false,
+      agent_model_id: null,
+      agent_prompt: ''
     },
     cache: {
       enabled: true,
@@ -848,8 +1049,153 @@ const formatJSON = (content) => {
   return JSON.stringify(content, null, 2)
 }
 
+const loadLLMModels = async () => {
+  try {
+    const data = await getLLMModels({ is_enabled: true, limit: 100 })
+    llmModels.value = data.items
+  } catch (error) {
+    console.error('Failed to load LLM models:', error)
+  }
+}
+
+const getAgentStatusType = (status) => {
+  const types = {
+    pending: 'info',
+    processing: 'warning',
+    success: 'success',
+    failed: 'danger',
+    skipped: 'info'
+  }
+  return types[status] || 'info'
+}
+
+const getAgentStatusText = (status) => {
+  const map = {
+    pending: '等待处理',
+    processing: '处理中',
+    success: '识别成功',
+    failed: '识别失败',
+    skipped: '已跳过'
+  }
+  return map[status] || status
+}
+
+const copyAgentJSON = () => {
+  if (currentTask.value?.result?.agent_result?.extracted_items) {
+    const json = JSON.stringify(currentTask.value.result.agent_result.extracted_items, null, 2)
+    navigator.clipboard.writeText(json).then(() => {
+      ElMessage.success('JSON 已复制到剪贴板')
+    }).catch(() => {
+      ElMessage.error('复制失败')
+    })
+  }
+}
+
+const exportAgentExcel = () => {
+  if (!currentTask.value?.result?.agent_result?.extracted_items?.length) return
+  
+  const items = currentTask.value.result.agent_result.extracted_items
+  const headers = Object.keys(items[0])
+  
+  // 简单的 CSV 导出
+  let csv = headers.join(',') + '\n'
+  items.forEach(item => {
+    csv += headers.map(h => {
+      const val = item[h] ?? ''
+      return typeof val === 'string' && val.includes(',') ? `"${val}"` : val
+    }).join(',') + '\n'
+  })
+  
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `agent_extract_${currentTask.value.task_id}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success('已导出为 CSV 文件')
+}
+
+// ===== Prompt Template Functions =====
+const loadAllTemplates = async () => {
+  templateLoading.value = true
+  try {
+    const data = await getPromptTemplates({ limit: 100 })
+    promptTemplates.value = data.items
+    filteredTemplates.value = data.items  // 初始显示全部
+  } catch (error) {
+    console.error('Failed to load templates:', error)
+  } finally {
+    templateLoading.value = false
+  }
+}
+
+// 本地过滤方法
+const filterTemplates = (query) => {
+  if (!query) {
+    filteredTemplates.value = promptTemplates.value
+    return
+  }
+  const lowerQuery = query.toLowerCase()
+  filteredTemplates.value = promptTemplates.value.filter(tpl => 
+    tpl.name.toLowerCase().includes(lowerQuery) || 
+    tpl.content.toLowerCase().includes(lowerQuery)
+  )
+}
+
+// 下拉框展开时确保加载数据
+const handleTemplateDropdownVisible = (visible) => {
+  if (visible && promptTemplates.value.length === 0) {
+    loadAllTemplates()
+  } else if (visible) {
+    // 重置过滤，显示全部
+    filteredTemplates.value = promptTemplates.value
+  }
+}
+
+const applyTemplate = (templateId) => {
+  if (!templateId) return
+  const tpl = promptTemplates.value.find(t => t._id === templateId)
+  if (tpl) {
+    scrapeForm.value.params.agent_prompt = tpl.content
+    ElMessage.success(`已应用模板: ${tpl.name}`)
+  }
+}
+
+const showSaveTemplateDialog = () => {
+  saveTemplateForm.value = { name: '', description: '' }
+  showSaveTemplateDialogVisible.value = true
+}
+
+const confirmSaveTemplate = async () => {
+  if (!saveTemplateForm.value.name.trim()) {
+    ElMessage.warning('请输入模板名称')
+    return
+  }
+  const promptContent = currentTask.value?.result?.agent_result?.user_prompt
+  if (!promptContent) {
+    ElMessage.warning('没有可保存的提示词')
+    return
+  }
+  
+  try {
+    await createPromptTemplate({
+      name: saveTemplateForm.value.name,
+      content: promptContent,
+      description: saveTemplateForm.value.description
+    })
+    ElMessage.success('模板保存成功')
+    showSaveTemplateDialogVisible.value = false
+    await loadAllTemplates()
+  } catch (error) {
+    ElMessage.error('保存模板失败: ' + (error.response?.data?.detail || error.message))
+  }
+}
+
 onMounted(() => {
   loadTasks()
+  loadLLMModels()
+  loadAllTemplates()
 })
 </script>
 
@@ -1096,121 +1442,94 @@ onMounted(() => {
   border-bottom: 1px solid #ebeef5;
 }
 
-/* Bento 风格新建任务对话框 */
+/* 新建任务对话框重构样式 */
 .bento-dialog :deep(.el-dialog__body) {
-  padding: 20px;
+  padding: 0;
   background-color: #f8fafc;
 }
 
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: auto auto;
-  gap: 10px;
+.basic-config-card {
+  margin: 15px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
 }
 
-.bento-item {
-  border: none;
-  border-radius: 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.scrape-tabs-container {
+  margin: 0 15px 15px 15px;
 }
 
-.bento-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1) !important;
+.scrape-tabs-container :deep(.el-tabs--border-card) {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-.target-card {
-  grid-column: span 1;
-}
-
-.bento-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-icon-box {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
-
-.header-icon-box.target { background-color: #eff6ff; color: #3b82f6; }
-.header-icon-box.performance { background-color: #fef2f2; color: #ef4444; }
-.header-icon-box.browser { background-color: #f0fdf4; color: #22c55e; }
-.header-icon-box.proxy { background-color: #faf5ff; color: #a855f7; }
-
-.header-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.main-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.sub-title {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.compact-switch {
+.tab-label {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-weight: 600;
+}
+
+.tab-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 10px 5px;
+}
+
+.tab-content-flex {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 10px 5px;
+}
+
+.config-section {
+  background: #fff;
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid #f1f5f9;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-title::before {
+  content: "";
+  width: 3px;
+  height: 14px;
+  background: #3b82f6;
+  border-radius: 2px;
+}
+
+.mb-0 { margin-bottom: 0 !important; }
+
+.compact-switch-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   height: 32px;
 }
 
-.status-text {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.label-with-tip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.help-icon {
-  font-size: 14px;
-  color: #94a3b8;
-  cursor: help;
-}
-
-.viewport-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.viewport-group :deep(.el-input-number) {
-  flex: 1;
-}
-
-.v-sep {
-  color: #94a3b8;
-  font-weight: bold;
-}
-
-.feature-grid {
-  display: grid;
+.feature-grid.mini {
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-top: 10px;
+  margin-top: 15px;
 }
 
 .feature-cell {
-  background-color: #f1f5f9;
-  padding: 8px 12px;
-  border-radius: 8px;
+  background-color: #f8fafc;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1238,6 +1557,64 @@ onMounted(() => {
 
 .bento-submit:hover {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.agent-tab-content {
+  padding: 5px;
+}
+
+.agent-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.agent-enable-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.switch-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.template-select-row {
+  display: flex;
+  align-items: center;
+}
+
+.agent-disabled-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: #94a3b8;
+}
+
+.agent-disabled-placeholder .el-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  color: #e2e8f0;
+}
+
+.agent-disabled-placeholder p {
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.bento-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 15px 20px;
+  background: #fff;
+  border-top: 1px solid #f1f5f9;
 }
 
 /* 下拉选项样式 */
@@ -1422,5 +1799,106 @@ onMounted(() => {
   padding: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+/* Agent 配置样式 */
+.header-icon-box.agent {
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+}
+
+.agent-disabled-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #909399;
+  font-size: 13px;
+  padding: 20px;
+  background: #fafafa;
+  border-radius: 6px;
+}
+
+.agent-result-section {
+  padding: 10px 0;
+}
+
+.agent-status-desc {
+  margin-bottom: 15px;
+}
+
+.token-usage-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.extracted-results {
+  margin-top: 10px;
+}
+
+.agent-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  justify-content: flex-end;
+}
+
+.raw-response {
+  margin: 0;
+  padding: 12px;
+  background: #282c34;
+  color: #abb2bf;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.user-prompt-section {
+  margin-top: 15px;
+}
+
+.prompt-content {
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.prompt-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  color: #606266;
+}
+
+.template-option {
+  display: flex;
+  flex-direction: column;
+  max-width: 280px;
+}
+
+.template-option-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-option-preview {
+  font-size: 12px;
+  color: #909399;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
+
+<style>
+/* 全局样式：模板下拉框宽度限制 */
+.template-select-dropdown {
+  max-width: 350px !important;
 }
 </style>
