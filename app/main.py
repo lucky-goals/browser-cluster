@@ -33,6 +33,7 @@ from app.api import (
     users,
     llm,
     prompt_template,
+    proxies,
 )
 from app.db.mongo import mongo
 from app.db.redis import redis_client
@@ -111,6 +112,7 @@ app.include_router(admin.router)
 app.include_router(nodes.router)
 app.include_router(llm.router)
 app.include_router(prompt_template.router)
+app.include_router(proxies.router)
 
 
 @app.on_event("startup")

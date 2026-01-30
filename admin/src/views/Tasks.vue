@@ -344,16 +344,37 @@
               <div class="tab-content-flex">
                 <div class="config-section">
                   <div class="section-title">代理设置</div>
-                  <el-form-item label="代理服务器 (可选)">
-                    <el-input v-model="scrapeForm.params.proxy.server" placeholder="http://proxy.com:8080" clearable />
+                  <el-form-item label="代理服务器 (可选)" label-position="top">
+                    <div style="display: flex; gap: 12px; width: 100%;">
+                      <el-input v-model="scrapeForm.params.proxy.server" placeholder="http://proxy.com:8080" clearable style="flex: 1" />
+                      <el-button 
+                        type="primary" 
+                        plain 
+                        :icon="Refresh" 
+                        :loading="testingProxy"
+                        @click="handleTestProxy"
+                        style="width: 100px"
+                      >
+                        测试
+                      </el-button>
+                      <el-button 
+                        type="info" 
+                        plain 
+                        :icon="Connection" 
+                        @click="showProxySelector"
+                        style="width: 120px"
+                      >
+                        从代理池选择
+                      </el-button>
+                    </div>
                   </el-form-item>
-                  <el-row :gutter="15" v-if="scrapeForm.params.proxy.server">
-                    <el-col :span="12">
+                  <el-row :gutter="15" style="margin-top: 5px;">
+                    <el-col :span="18">
                       <el-form-item label="用户名">
                         <el-input v-model="scrapeForm.params.proxy.username" placeholder="可选" />
                       </el-form-item>
                     </el-col>
-                    <el-col :span="12">
+                    <el-col :span="6">
                       <el-form-item label="密码">
                         <el-input v-model="scrapeForm.params.proxy.password" type="password" placeholder="可选" show-password />
                       </el-form-item>
@@ -497,12 +518,26 @@
               </el-descriptions-item>
               <el-descriptions-item label="创建时间">{{ formatDate(currentTask.created_at) }}</el-descriptions-item>
               <el-descriptions-item label="完成时间">{{ formatDate(currentTask.completed_at) || '-' }}</el-descriptions-item>
-              <el-descriptions-item label="缓存命中">
+               <el-descriptions-item label="缓存命中">
                 <el-tag :type="currentTask.cached ? 'success' : 'info'" size="default">
                   {{ currentTask.cached ? '命中' : '未命中' }}
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="节点 ID">{{ currentTask.node_id || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="代理记录" v-if="currentTask.params?.proxy" :span="2">
+                <div class="proxy-info-detail">
+                  <div class="proxy-line">
+                    <span class="p-label">服务器:</span>
+                    <el-tag type="warning" effect="plain" size="small">
+                      <el-icon><Connection /></el-icon> {{ currentTask.params.proxy.server }}
+                    </el-tag>
+                  </div>
+                  <div class="proxy-line" v-if="currentTask.params.proxy.username">
+                    <span class="p-label">用户名:</span>
+                    <code class="p-user">{{ currentTask.params.proxy.username }}</code>
+                  </div>
+                </div>
+              </el-descriptions-item>
             </el-descriptions>
 
             <div v-if="currentTask.result" class="metadata-section">
@@ -694,6 +729,58 @@
         <el-button type="primary" @click="confirmSaveTemplate">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 代理选择对话框 -->
+    <el-dialog
+      v-model="proxyDialogVisible"
+      title="从代理池选择"
+      width="800px"
+      class="proxy-selector-dialog"
+      destroy-on-close
+    >
+      <div class="selector-header" style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <el-input
+          v-model="proxySearch"
+          placeholder="搜索名称、服务器、城市..."
+          clearable
+          prefix-icon="Search"
+          style="width: 300px"
+          @clear="loadProxyPool"
+          @keyup.enter="loadProxyPool"
+        />
+        <el-button type="primary" :icon="Search" @click="loadProxyPool">查询</el-button>
+      </div>
+
+      <el-table :data="proxyPool" v-loading="proxyLoading" border stripe size="small">
+        <el-table-column prop="name" label="代理名称" min-width="120" />
+        <el-table-column prop="server" label="服务器地址" min-width="180">
+          <template #default="{ row }">
+            <code>{{ row.server }}</code>
+          </template>
+        </el-table-column>
+        <el-table-column prop="location" label="地理位置" width="150" />
+        <el-table-column prop="session_type" label="会话" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag size="small">{{ row.session_type === 'sticky' ? '粘性' : '随机' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right" align="center">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" @click="handleSelectProxy(row)">选择</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pagination-container" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+        <el-pagination
+          v-model:current-page="proxyPage"
+          v-model:page-size="proxyPageSize"
+          :total="proxyTotal"
+          layout="total, prev, pager, next"
+          @current-change="loadProxyPool"
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -701,13 +788,45 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Picture, WarningFilled, DeleteFilled, Setting, Connection, Monitor, Timer, Search, CopyDocument, View, VideoPlay, Link, Lock, Promotion, QuestionFilled, Cpu, Right, MagicStick, InfoFilled, Download, DocumentCopy, Grid, EditPen, Collection } from '@element-plus/icons-vue'
-import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, retryTask, deleteTasksBatch, getLLMModels, getPromptTemplates, createPromptTemplate } from '../api'
+import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, retryTask, deleteTasksBatch, getLLMModels, getPromptTemplates, createPromptTemplate, testProxy, getProxies } from '../api'
 import dayjs from 'dayjs'
 
 const loading = ref(false)
 const tasks = ref([])
 const llmModels = ref([])
 const selectedTasks = ref([])
+const testingProxy = ref(false)
+
+const handleTestProxy = async () => {
+  if (!scrapeForm.value.params.proxy.server) {
+    ElMessage.warning('请先输入代理服务器地址')
+    return
+  }
+
+  testingProxy.value = true
+  try {
+    const result = await testProxy({
+      proxy: scrapeForm.value.params.proxy
+    })
+    
+    if (result.status === 'success') {
+      ElMessage({
+        message: `代理测试成功！(耗时: ${result.latency}s, 状态码: ${result.status_code})`,
+        type: 'success',
+        duration: 5000
+      })
+    } else {
+      ElMessageBox.alert(result.message, '代理测试失败', {
+        confirmButtonText: '确定',
+        type: 'error'
+      })
+    }
+  } catch (error) {
+    ElMessage.error('测试接口调用失败: ' + (error.response?.data?.detail || error.message))
+  } finally {
+    testingProxy.value = false
+  }
+}
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
@@ -734,6 +853,48 @@ const handleFilter = () => {
 
 const handleSelectionChange = (val) => {
   selectedTasks.value = val
+}
+
+// Proxy Pool Selector
+const proxyDialogVisible = ref(false)
+const proxyLoading = ref(false)
+const proxyPool = ref([])
+const proxyTotal = ref(0)
+const proxyPage = ref(1)
+const proxyPageSize = ref(10)
+const proxySearch = ref('')
+
+const loadProxyPool = async () => {
+  proxyLoading.value = true
+  try {
+    const params = {
+      skip: (proxyPage.value - 1) * proxyPageSize.value,
+      limit: proxyPageSize.value,
+      search: proxySearch.value || undefined
+    }
+    const data = await getProxies(params)
+    proxyPool.value = data.items
+    proxyTotal.value = data.total
+  } catch (error) {
+    ElMessage.error('加载代理池失败')
+  } finally {
+    proxyLoading.value = false
+  }
+}
+
+const showProxySelector = () => {
+  proxyDialogVisible.value = true
+  loadProxyPool()
+}
+
+const handleSelectProxy = (proxy) => {
+  scrapeForm.value.params.proxy = {
+    server: proxy.server,
+    username: proxy.username || '',
+    password: proxy.password || ''
+  }
+  proxyDialogVisible.value = false
+  ElMessage.success(`已选择代理: ${proxy.name}`)
 }
 
 const confirmBatchDelete = () => {
@@ -1799,6 +1960,45 @@ onMounted(() => {
   padding: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+/* 代理信息展示样式 */
+.proxy-info-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.proxy-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.p-label {
+  font-size: 12px;
+  color: #909399;
+  min-width: 50px;
+  flex-shrink: 0;
+}
+
+.proxy-line :deep(.el-tag__content) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.p-user {
+  background: #fdf6ec;
+  color: #e6a23c;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+  border: 1px solid #faecd8;
+  word-break: break-all;
 }
 
 /* Agent 配置样式 */

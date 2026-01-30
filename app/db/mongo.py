@@ -112,6 +112,16 @@ class MongoDB:
         """
         return self.db.prompt_templates
 
+    @property
+    def proxies(self):
+        """
+        获取代理配置集合
+
+        Returns:
+            Collection: proxies 集合
+        """
+        return self.db.proxies
+
 
 # 全局 MongoDB 实例
 mongo = MongoDB()

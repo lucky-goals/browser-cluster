@@ -83,6 +83,11 @@ export const scrapeBatch = async (data) => {
   return response.data
 }
 
+export const testProxy = async (data) => {
+  const response = await api.post('/scrape/test-proxy', data)
+  return response.data
+}
+
 export const getTask = async (taskId) => {
   const response = await api.get(`/tasks/${taskId}`)
   return response.data
@@ -232,5 +237,31 @@ export const updatePromptTemplate = async (templateId, data) => {
 
 export const deletePromptTemplate = async (templateId) => {
   const response = await api.delete(`/prompt-templates/${templateId}`)
+  return response.data
+}
+
+// Proxies API
+export const getProxies = async (params) => {
+  const response = await api.get('/proxies', { params })
+  return response.data
+}
+
+export const createProxy = async (data) => {
+  const response = await api.post('/proxies', data)
+  return response.data
+}
+
+export const updateProxy = async (proxyId, data) => {
+  const response = await api.put(`/proxies/${proxyId}`, data)
+  return response.data
+}
+
+export const deleteProxy = async (proxyId) => {
+  const response = await api.delete(`/proxies/${proxyId}`)
+  return response.data
+}
+
+export const testStoredProxy = async (proxyId) => {
+  const response = await api.post(`/proxies/${proxyId}/test`)
   return response.data
 }

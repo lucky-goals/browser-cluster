@@ -11,6 +11,13 @@ from pydantic import BaseModel, HttpUrl, Field
 from app.models.llm import AgentResult
 
 
+class ProxyConfig(BaseModel):
+    """代理配置模型"""
+    server: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+
 class ScrapeParams(BaseModel):
     """抓取参数模型"""
 
@@ -26,7 +33,7 @@ class ScrapeParams(BaseModel):
     viewport: Dict[str, int] = Field(
         default_factory=lambda: {"width": 1920, "height": 1080}
     )  # 视口大小
-    proxy: Optional[Dict[str, Any]] = None  # 代理配置 {server, username, password}
+    proxy: Optional[ProxyConfig] = None  # 代理配置 {server, username, password}
     stealth: bool = True  # 是否启用反检测 (stealth)
     intercept_apis: Optional[List[str]] = None  # 要拦截的接口 URL 模式列表
     intercept_continue: bool = False  # 拦截接口后是否继续请求 (默认 False)
@@ -115,6 +122,7 @@ class TaskResponse(BaseModel):
     url: str  # 目标 URL
     node_id: Optional[str] = None  # 处理节点 ID
     status: str  # 任务状态
+    params: Optional[Dict[str, Any]] = None  # 任务参数
     result: Optional[ScrapedResult] = None  # 抓取结果
     error: Optional[TaskError] = None  # 错误信息
     cached: bool = False  # 是否来自缓存
@@ -139,6 +147,11 @@ class BatchDeleteRequest(BaseModel):
     """批量删除请求模型"""
 
     task_ids: List[str]  # 要删除的任务 ID 列表
+
+
+class ProxyTestRequest(BaseModel):
+    """代理测试请求模型"""
+    proxy: ProxyConfig
 
 
 class StatsResponse(BaseModel):

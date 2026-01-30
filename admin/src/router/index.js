@@ -8,6 +8,7 @@ import Login from '../views/Login.vue'
 import Users from '../views/Users.vue'
 import LLMModels from '../views/LLMModels.vue'
 import PromptTemplates from '../views/PromptTemplates.vue'
+import Proxies from '../views/Proxies.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
@@ -15,6 +16,7 @@ const routes = [
   { path: '/', component: Home },
   { path: '/tasks', component: Tasks },
   { path: '/stats', component: Stats },
+  { path: '/proxies', component: Proxies },
   { path: '/configs', component: Configs, meta: { adminOnly: true } },
   { path: '/nodes', component: Nodes, meta: { adminOnly: true } },
   { path: '/users', component: Users, meta: { adminOnly: true } },

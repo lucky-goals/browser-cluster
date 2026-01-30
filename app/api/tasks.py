@@ -51,11 +51,21 @@ async def get_task(task_id: str, current_user: dict = Depends(get_current_user))
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    # 对参数进行脱敏处理（仅脱敏代理密码，保留用户名可见）
+    params = task.get("params", {}).copy()
+    if params and "proxy" in params and params["proxy"]:
+        proxy = params["proxy"].copy()
+        # 用户名通常包含重要信息（如归属地/IP），不再隐藏
+        if "password" in proxy:
+            proxy["password"] = "****"
+        params["proxy"] = proxy
+
     return TaskResponse(
         task_id=task["task_id"],
         url=task["url"],
         node_id=task.get("node_id"),
         status=task["status"],
+        params=params,
         result=task.get("result"),
         error=task.get("error"),
         cached=task.get("cached", False),

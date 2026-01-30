@@ -47,6 +47,10 @@
             <el-icon><User /></el-icon>
             <template #title>用户管理</template>
           </el-menu-item>
+          <el-menu-item index="proxies">
+            <el-icon><Connection /></el-icon>
+            <template #title>代理管理</template>
+          </el-menu-item>
           <el-menu-item index="configs" v-if="isAdmin">
             <el-icon><Setting /></el-icon>
             <template #title>系统设置</template>
@@ -177,7 +181,8 @@ const currentRouteName = computed(() => {
     '/nodes': '节点管理',
     '/configs': '系统设置',
     '/users': '用户管理',
-    '/llm-models': '模型设置'
+    '/llm-models': '模型设置',
+    '/proxies': '代理管理'
   }
   return names[path] || '未知'
 })

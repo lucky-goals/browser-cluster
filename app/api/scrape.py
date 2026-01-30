@@ -10,14 +10,17 @@ from app.models.task import (
     ScrapeRequest,
     TaskResponse,
     BatchScrapeRequest,
-    BatchScrapeResponse
+    BatchScrapeResponse,
+    ProxyTestRequest
 )
 from app.services.queue_service import rabbitmq_service
 from app.services.cache_service import cache_service
 from app.db.mongo import mongo
 from app.core.config import settings
 from app.core.auth import get_current_user
+from app.core.scraper import scraper
 import asyncio
+import time
 
 router = APIRouter(prefix="/api/v1/scrape", tags=["Scrape"])
 
@@ -280,3 +283,55 @@ async def scrape_batch(request: BatchScrapeRequest, current_user: dict = Depends
         task_ids.append(task_id)
 
     return BatchScrapeResponse(task_ids=task_ids)
+
+
+@router.post("/test-proxy")
+async def test_proxy(request: ProxyTestRequest, current_user: dict = Depends(get_current_user)):
+    """
+    测试代理服务器是否可用
+    
+    使用系统配置中的 proxy_test_url 作为目标网址进行测试。
+    超时时间固定为 15 秒。
+    """
+    test_url = settings.proxy_test_url
+    proxy_params = request.proxy.model_dump()
+    
+    start_time = time.time()
+    
+    # 构建抓取参数供 Scraper 使用
+    scrape_params = {
+        "proxy": proxy_params,
+        "timeout": 15000,  # 15秒超时
+        "wait_for": "domcontentloaded",
+        "screenshot": False,
+        "stealth": True
+    }
+    
+    try:
+        # 使用 Scraper 直接测试访问
+        result = await scraper.scrape(test_url, scrape_params, node_id="test-node")
+        
+        latency = time.time() - start_time
+        
+        if result["status"] == "success":
+            return {
+                "status": "success",
+                "message": "Proxy is working correctly",
+                "latency": round(latency, 2),
+                "url": test_url,
+                "status_code": result["metadata"].get("status_code")
+            }
+        else:
+            return {
+                "status": "failed",
+                "message": result["error"]["message"],
+                "type": result["error"]["type"],
+                "latency": round(latency, 2)
+            }
+            
+    except Exception as e:
+        return {
+            "status": "failed",
+            "message": str(e),
+            "latency": round(time.time() - start_time, 2)
+        }
