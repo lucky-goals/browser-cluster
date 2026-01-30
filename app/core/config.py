@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"  # 默认 User-Agent
     browser_idle_timeout: int = 300  # 浏览器空闲超时时间（秒），默认5分钟
     stealth_mode: bool = True  # 默认隐蔽模式
-    proxy_test_url: str = "https://www.baidu.com"  # 代理测试目标地址
+    proxy_test_url: str = "https://www.github.com"  # 代理测试目标地址
 
     # Worker 配置
     worker_concurrency: int = 3  # Worker 并发数
