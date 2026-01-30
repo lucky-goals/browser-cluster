@@ -1,5 +1,5 @@
 # Build Stage for Frontend
-FROM node:22-alpine as frontend-builder
+FROM node:22-alpine AS frontend-builder
 
 WORKDIR /app/admin
 
@@ -45,21 +45,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 \
     xdg-utils \
     tzdata \
+    curl \
     && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    TZ=Asia/Shanghai
+    TZ=Asia/Shanghai \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
 ENV PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright
-# Install Python dependencies with Chinese mirror
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-RUN playwright install chromium
+
+# Copy project files for uv
+COPY pyproject.toml uv.lock* ./
+
+# Install Python dependencies with uv
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Install playwright browsers
+RUN uv run playwright install chromium
 
 # Copy Project Files
 COPY app/ ./app/
@@ -75,7 +85,5 @@ RUN mkdir -p logs
 # Expose port
 EXPOSE 8000
 
-
-
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application with uv
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

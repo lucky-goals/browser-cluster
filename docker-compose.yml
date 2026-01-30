@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # 1. 核心应用服务
+  browser-cluster:
+    image: browser-cluster-group:latest
+    container_name: browser-cluster-app
+    ports:
+      - "9993:8000"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - bc-net
+
+  # 2. MongoDB
+  mongodb:
+    image: mongo:latest
+    container_name: browser-cluster-mongo
+    ports:
+      - "27017:27017"  # 暴露给宿主机本地开发使用
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - bc-net
+
+  # 3. Redis
+  redis:
+    image: redis:alpine
+    container_name: browser-cluster-redis
+    ports:
+      - "6379:6379"  # 暴露给宿主机本地开发使用
+    networks:
+      - bc-net
+
+  # 4. RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: browser-cluster-mq
+    networks:
+      - bc-net
+    ports:
+      - "5672:5672"    # AMQP 端口，暴露给宿主机本地开发使用
+      - "15672:15672"  # 管理后台端口
+
+networks:
+  bc-net:
+    driver: bridge
+
+volumes:
+  mongo_data:

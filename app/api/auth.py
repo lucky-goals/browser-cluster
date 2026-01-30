@@ -11,6 +11,9 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     """用户登录接口"""
     user = sqlite_db.get_user_by_username(form_data.username)
+
+    print(f"user: {user}")
+    print(f"form: {form_data.username};{form_data.password}")
     if not user or not verify_password(form_data.password, user["password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
