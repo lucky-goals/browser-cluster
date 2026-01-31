@@ -64,6 +64,21 @@ async def test_coordinates_extraction():
         print(f"Test Case 4 Result: {coords4}")
         assert coords4 is None
 
+        # Test Case 5: Flexible TLDs (e.g., google.co.uk, google.com.hk)
+        content5 = """
+        <html>
+            <body>
+                <a href="https://www.google.co.uk/maps/@51.5074,-0.1278,15z">Google Map UK</a>
+                <a href="https://www.google.com.hk/maps?ll=22.3193,114.1694">Google Map HK</a>
+            </body>
+        </html>
+        """
+        await page.set_content(content5)
+        coords5 = await BrowserSkills.extract_coordinates(page)
+        print(f"Test Case 5 Result: {coords5}")
+        assert coords5['lat'] == '51.5074'
+        assert coords5['lng'] == '-0.1278'
+
         print("All coordinate extraction test cases passed!")
         await browser.close()
 

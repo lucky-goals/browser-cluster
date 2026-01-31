@@ -229,8 +229,10 @@ class BrowserSkills:
                 const altRegex = /@([-+]?\\d+\\.\\d+),([-+]?\\d+\\.\\d+)/;
 
                 const findInNode = (root) => {
-                    // 1. 查找所有链接
-                    const links = root.querySelectorAll('a[href*="google.com/maps"]');
+                    // 1. 查找所有链接，使用正则匹配各种 Google TLD (如 .com, .co.uk, .com.hk 等)
+                    const googleMapsRegex = /google\\.[a-z.]+\\/maps/;
+                    const links = Array.from(root.querySelectorAll('a')).filter(a => googleMapsRegex.test(a.href));
+                    
                     for (const link of links) {
                         const href = link.href;
                         let match = href.match(coordRegex);
