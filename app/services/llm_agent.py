@@ -10,6 +10,8 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import httpx
+import google.genai as genai
+from google.genai import types
 
 from app.models.llm import AgentResult, AgentStatus, LLMProvider
 
@@ -49,9 +51,10 @@ class LLMAgent:
 
     async def extract_content(
         self,
-        html: str,
+        content: str,
         screenshot_base64: Optional[str],
         user_prompt: str,
+        system_prompt: Optional[str] = None,
         skills: List[str] = None,
     ) -> AgentResult:
         """
@@ -77,11 +80,12 @@ class LLMAgent:
 
         try:
             # 构建系统提示
-            system_prompt = self._build_extraction_system_prompt(skills)
+            system_prompt = self._build_extraction_system_prompt(system_prompt, skills)
+            result.system_prompt = system_prompt
 
             # 构建用户消息
             user_message = self._build_extraction_user_message(
-                html, user_prompt, screenshot_base64
+                content, user_prompt, screenshot_base64
             )
 
             # 调用 LLM
@@ -114,16 +118,20 @@ class LLMAgent:
 
         return result
 
-    def _build_extraction_system_prompt(self, skills: List[str] = None) -> str:
-        """构建提取任务的系统提示"""
-        prompt = """你是一个专业的网页内容提取助手。你的任务是根据用户的要求，从提供的网页 HTML 内容中提取结构化数据。
+    def _build_extraction_system_prompt(
+        self, custom_system_prompt: Optional[str] = None, skills: List[str] = None
+    ) -> str:
+        """构建提取任务的系统提示词"""
+        base_prompt = """你是一个专业的网页内容提取助手。你的任务是根据用户的要求，从提供的**视觉块状网页内容**中提取结构化数据。
+
+这些内容已经过预处理，按页面的视觉顺序（从上到下，从左到右）进行了排列。每一行代表页面上的一个视觉块或一组紧邻的元素。
 
 请遵循以下规则：
-1. 仔细分析 HTML 结构，识别重复的列表项或卡片元素
-2. 提取用户要求的所有字段
-3. 返回 JSON 格式的结果，格式为一个数组，每个元素是一个提取的记录
-4. 如果某个字段无法提取，使用 null 值
-5. 确保提取的数据完整且准确
+1. 仔细分析提供的文本结构，识别重复的模式、列表项或卡片信息。
+2. 提取用户要求的所有字段。同一行中用 '|' 分隔的内容通常是视觉上相邻或具有逻辑关联的（例如：标题 | 价格 | 评分）。
+3. 返回 JSON 格式的结果，格式为一个数组，每个元素是一个提取的记录。
+4. 如果某个字段无法提取，使用 null 值。
+5. 确保提取的数据完整且准确。
 
 输出格式示例：
 ```json
@@ -138,29 +146,42 @@ class LLMAgent:
 ```
 """
 
+        # 如果提供了自定义系统提示，将其与基础提示合并
+        if custom_system_prompt:
+            # prompt = f"{custom_system_prompt}\n\n---\n\n{base_prompt}"
+            prompt = f"{custom_system_prompt}"
+        else:
+            prompt = base_prompt
+
         if skills:
-            prompt += f"\n\n可用的技能: {', '.join(skills)}"
+            prompt += "\n\n系统当前支持以下增强技能 (Skills)，这些技能已经被集成在抓取流程中：\n"
+            skill_docs = {
+                "scroll": "- 滚动 (scroll): 支持对 window 或特定容器进行垂直滚动，用于触发懒加载或获取下方内容。",
+                "infinite_scroll": "- 流式滚动 (infinite_scroll): 高级滚动技能，能够自动判断是否有新内容加载，并持续滚动直到页面底部或加载完成。",
+                "pagination": "- 翻页 (pagination): 能够识别并执行“下一页”或“上一页”操作。",
+                "zoom": "- 缩放 (zoom): 专门用于地图组件的放大或缩小，帮助获取不同层级的地理信息。",
+                "fill": "- 填充 (fill): 支持自动填写表单字段。",
+                "click": "- 点击 (click): 点击页面上的特定元素（如展开更多、切换 Tab）。",
+                "wait": "- 等待 (wait): 在操作之间执行固定时长的等待，确保动态内容加载完毕。"
+            }
+            for skill in skills:
+                if skill in skill_docs:
+                    prompt += f"{skill_docs[skill]}\n"
 
         return prompt
 
     def _build_extraction_user_message(
-        self, html: str, user_prompt: str, screenshot_base64: Optional[str] = None
+        self, content: str, user_prompt: str, screenshot_base64: Optional[str] = None
     ) -> str:
         """构建用户消息"""
-        # 限制 HTML 长度，避免超出 token 限制
-        max_html_length = 50000  # 约 12500 tokens
-        if len(html) > max_html_length:
-            html = html[:max_html_length] + "\n... [HTML 内容已截断]"
-
         message = f"""用户的提取要求：
 {user_prompt}
 
-网页 HTML 内容：
-```html
-{html}
-```
-
-请根据要求提取数据，返回 JSON 格式的结果。"""
+网页视觉块状内容（按视觉顺序排列）：
+---
+{content}
+---
+"""
 
         return message
 
@@ -289,33 +310,53 @@ class LLMAgent:
         return {"content": data["content"][0]["text"], "usage": data.get("usage")}
 
     async def _call_google(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
-        """调用 Google Gemini API"""
-        url = f"{self.base_url}/models/{self.model_name}:generateContent?key={self.api_key}"
-
-        # 转换消息格式
+        """调用 Google Gemini API (使用 google-genai SDK)"""
+        # 配置客户端
+        client_options = {'api_key': self.api_key}
+        
+        # 处理基础 URL
+        base_url = self.base_url.rstrip("/")
+        if base_url:
+            # SDK 的 http_options 使用 base_url
+            client_options['http_options'] = {'base_url': base_url}
+        
+        client = genai.Client(**client_options)
+        
+        # 转换 OpenAi 消息格式为 SDK 格式
         contents = []
+        system_instruction = None
+        
         for msg in messages:
-            role = "user" if msg["role"] in ["user", "system"] else "model"
-            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
-
-        headers = {"Content-Type": "application/json"}
-
-        payload = {
-            "contents": contents,
-            "generationConfig": {
-                "temperature": self.temperature,
-                "maxOutputTokens": self.max_tokens,
-            },
-        }
-
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-
+            if msg["role"] == "system":
+                system_instruction = msg["content"]
+            else:
+                role = "user" if msg["role"] == "user" else "model"
+                contents.append(types.Content(role=role, parts=[types.Part(text=msg["content"])]))
+        
+        # 设置生成的配置
+        config = types.GenerateContentConfig(
+            temperature=self.temperature,
+            max_output_tokens=self.max_tokens,
+            system_instruction=system_instruction
+        )
+        
+        # SDK 目前主要是同步的，在大规模并发下建议使用其异步版本（如果版本支持 aio）
+        # 这里使用 aio 接口（Client.aio）
+        async_client = genai.Client(**client_options, vertexai=False).aio
+        
+        response = await async_client.models.generate_content(
+            model=self.model_name,
+            contents=contents,
+            config=config
+        )
+        
         return {
-            "content": data["candidates"][0]["content"]["parts"][0]["text"],
-            "usage": data.get("usageMetadata"),
+            "content": response.text,
+            "usage": {
+                "prompt_tokens": getattr(response.usage_metadata, 'prompt_token_count', 0) if response.usage_metadata else 0,
+                "completion_tokens": getattr(response.usage_metadata, 'candidates_token_count', 0) if response.usage_metadata else 0,
+                "total_tokens": getattr(response.usage_metadata, 'total_token_count', 0) if response.usage_metadata else 0
+            }
         }
 
     async def _call_ollama(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:

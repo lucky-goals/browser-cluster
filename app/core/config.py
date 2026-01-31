@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     browser_idle_timeout: int = 300  # 浏览器空闲超时时间（秒），默认5分钟
     stealth_mode: bool = True  # 默认隐蔽模式
     proxy_test_url: str = "https://www.github.com"  # 代理测试目标地址
+    agent_max_html_length: int = 200000  # Agent 提取时最大 HTML 长度（字符）
 
     # Worker 配置
     worker_concurrency: int = 3  # Worker 并发数

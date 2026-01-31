@@ -33,6 +33,7 @@ dependencies = [
     "cryptography>=46.0.3",
     # 其他工具
     "motor>=3.7.1",
+    "google-genai>=1.61.0",
 ]
 
 [project.optional-dependencies]

@@ -13,7 +13,8 @@ class PromptTemplateBase(BaseModel):
     """提示词模板基础配置"""
 
     name: str  # 模板名称
-    content: str  # 提示词内容
+    system_content: Optional[str] = None  # 系统提示词内容
+    content: str  # 提取要求内容
     description: Optional[str] = None  # 模板描述（可选）
 
 
@@ -27,6 +28,7 @@ class PromptTemplateUpdate(BaseModel):
     """更新提示词模板请求"""
 
     name: Optional[str] = None
+    system_content: Optional[str] = None
     content: Optional[str] = None
     description: Optional[str] = None
 

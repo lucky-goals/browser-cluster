@@ -7,11 +7,14 @@
 import time
 import base64
 import re
+import logging
 from typing import Optional, Dict, Any, List
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright_stealth import Stealth
 from app.core.browser import browser_manager
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class Scraper:
@@ -115,6 +118,36 @@ class Scraper:
             if wait_time > 0:
                 await page.wait_for_timeout(wait_time)
 
+            # 执行交互步骤 (Interaction Steps / Skills)
+            interaction_steps = params.get("interaction_steps")
+            skill_results = {}
+            if interaction_steps:
+                from app.core.skills import SKILLS_MAP
+                logger.info(f"Executing {len(interaction_steps)} interaction steps")
+                for i, step in enumerate(interaction_steps):
+                    # 兼容模型对象或字典
+                    if hasattr(step, "model_dump"):
+                        step = step.model_dump()
+                    
+                    action = step.get("action")
+                    step_params = step.get("params", {})
+                    
+                    if action in SKILLS_MAP:
+                        logger.info(f"Executing skill: {action} with params: {step_params}")
+                        skill_func = SKILLS_MAP[action]
+                        skill_res = await skill_func(page, **step_params)
+                        # 记录有意义的返回结果 (非布尔值或 None)
+                        if skill_res not in [True, False, None]:
+                            skill_results[f"{action}_{i}"] = skill_res
+                    else:
+                        logger.warning(f"Unknown skill action: {action}")
+                
+                # 交互完成后再次等待网络空闲，确保内容加载完毕
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=5000)
+                except:
+                    pass
+
             # 获取页面 HTML
             html = await page.content()
             actual_url = page.url  # 获取重定向后的实际 URL
@@ -165,15 +198,33 @@ class Scraper:
             if intercepted_data:
                 result["intercepted_apis"] = intercepted_data
 
+            # 如果有技能执行结果，添加到结果中
+            if skill_results:
+                result["skill_results"] = skill_results
+
             # 如果启用了 Agent 识别，执行内容提取
             if params.get("agent_enabled") and params.get("agent_model_id"):
+                # 优化：提取视觉块状内容而不是原始 HTML
+                visual_content = await self._extract_visual_content(page)
+                
+                # 如果有技能执行结果，将其注入到内容中，方便 LLM 提取
+                if skill_results:
+                    skill_info = "### Skill Results ###\n"
+                    for key, val in skill_results.items():
+                        skill_info += f"{key}: {val}\n"
+                    skill_info += "#####################\n\n"
+                    visual_content = skill_info + visual_content
+
                 agent_result = await self._run_agent_extraction(
-                    html=html,
+                    content=visual_content,  # 传递处理后的内容
                     screenshot=screenshot,
                     model_id=params["agent_model_id"],
                     user_prompt=params.get("agent_prompt", ""),
+                    system_prompt=params.get("agent_system_prompt"),
                 )
                 result["agent_result"] = agent_result
+                # 将视觉内容存入结果，方便调试
+                result["visual_content"] = visual_content
 
             return result
 
@@ -294,6 +345,106 @@ class Scraper:
         # 注册路由处理器
         await page.route("**/*", route_handler)
 
+    async def _extract_visual_content(self, page) -> str:
+        """
+        提取页面的视觉块状内容
+        通过 JavaScript 分析 DOM 元素的视觉位置，并将其按视觉顺序重组。
+        """
+        js_script = """
+        () => {
+            const results = [];
+            const walk = (node) => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    const style = window.getComputedStyle(node);
+                    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+                        return;
+                    }
+                    
+                    const tagName = node.tagName.toLowerCase();
+                    if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) {
+                        return;
+                    }
+
+                    // 检查是否有直接的文本内容
+                    let hasText = false;
+                    for (const child of node.childNodes) {
+                        if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+                            hasText = true;
+                            break;
+                        }
+                    }
+
+                    if (hasText || ['button', 'input', 'select', 'textarea', 'a'].includes(tagName)) {
+                        const rect = node.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {
+                            let text = node.innerText.trim().replace(/\\n+/g, ' ');
+                            
+                            // 针对 <a> 标签提取 href
+                            if (tagName === 'a' && node.href) {
+                                const href = node.href;
+                                if (text) {
+                                    text = `${text} [Link: ${href}]`;
+                                } else {
+                                    text = `[Link: ${href}]`;
+                                }
+                            }
+
+                            results.push({
+                                tagName,
+                                text: text,
+                                x: Math.round(rect.x),
+                                y: Math.round(rect.y),
+                                w: Math.round(rect.width),
+                                h: Math.round(rect.height)
+                            });
+                            return; // 已经处理了该节点的文本，不再递归其子节点（避免重复）
+                        }
+                    }
+                }
+                
+                for (const child of node.childNodes) {
+                    walk(child);
+                }
+            };
+
+            walk(document.body);
+
+            // 按 Y 坐标排序，然后按 X 坐标排序
+            results.sort((a, b) => {
+                const yDiff = a.y - b.y;
+                if (Math.abs(yDiff) < 10) { // 认为在同一行
+                    return a.x - b.x;
+                }
+                return yDiff;
+            });
+
+            // 分块聚合
+            const blocks = [];
+            let currentBlock = null;
+
+            for (const item of results) {
+                if (!currentBlock || Math.abs(item.y - currentBlock.y) > 15) {
+                    if (currentBlock) blocks.push(currentBlock);
+                    currentBlock = {
+                        y: item.y,
+                        texts: [item.text]
+                    };
+                } else {
+                    currentBlock.texts.push(item.text);
+                }
+            }
+            if (currentBlock) blocks.push(currentBlock);
+
+            return blocks.map(b => b.texts.join(' | ')).join('\\n');
+        }
+        """
+        try:
+            content = await page.evaluate(js_script)
+            return content
+        except Exception as e:
+            logger.error(f"Failed to extract visual content: {e}")
+            return "Failed to extract visual content"
+
     async def _block_resources(self, page, params: Dict[str, Any]):
         """
         拦截指定类型的资源
@@ -325,7 +476,7 @@ class Scraper:
         await page.route("**/*", route_handler)
 
     async def _run_agent_extraction(
-        self, html: str, screenshot: str, model_id: str, user_prompt: str
+        self, content: str, screenshot: str, model_id: str, user_prompt: str, system_prompt: Optional[str] = None
     ) -> dict:
         """
         运行 Agent 内容提取
@@ -351,7 +502,10 @@ class Scraper:
                 ).model_dump()
 
             result = await agent.extract_content(
-                html=html, screenshot_base64=screenshot, user_prompt=user_prompt
+                content=content,
+                screenshot_base64=screenshot,
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
             )
             return result.model_dump()
 

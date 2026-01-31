@@ -109,6 +109,7 @@ class AgentResult(BaseModel):
     model_id: Optional[str] = None  # 使用的模型 ID
     model_name: Optional[str] = None  # 使用的模型名称
     user_prompt: Optional[str] = None  # 用户的提取要求
+    system_prompt: Optional[str] = None  # 系统提示词内容
     extracted_items: Optional[List[Dict[str, Any]]] = None  # 提取的结构化数据
     raw_response: Optional[str] = None  # LLM 原始响应
     token_usage: Optional[Dict[str, Any]] = None  # tokens 使用量，可能包含嵌套结构

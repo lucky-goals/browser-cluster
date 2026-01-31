@@ -26,7 +26,7 @@
         border 
         stripe
       >
-        <el-table-column prop="name" label="模型名称" width="160">
+        <el-table-column prop="name" label="模型名称" width="350">
           <template #default="{ row }">
             <div class="model-name-cell">
               <el-tag :type="getProviderType(row.provider)" effect="plain" size="small">
@@ -38,13 +38,13 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="model_name" label="模型标识" width="180">
+        <el-table-column prop="model_name" label="模型标识" width="300">
           <template #default="{ row }">
             <code class="model-id">{{ row.model_name }}</code>
           </template>
         </el-table-column>
 
-        <el-table-column prop="base_url" label="API 地址" min-width="280">
+        <el-table-column prop="base_url" label="API 地址">
           <template #default="{ row }">
             <el-tooltip :content="row.base_url" placement="top">
               <span class="url-text">{{ row.base_url }}</span>
@@ -432,7 +432,7 @@ onMounted(() => {
 }
 
 .url-text {
-  max-width: 260px;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

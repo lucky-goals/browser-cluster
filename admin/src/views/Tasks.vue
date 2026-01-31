@@ -222,8 +222,8 @@
       title="新建抓取任务" 
       width="900px" 
       destroy-on-close 
-      top="5vh"
-      class="bento-dialog"
+      top="15vh"
+      class="bento-dialog task-create-dialog"
     >
       <el-form :model="scrapeForm" label-width="100px" label-position="top">
         <!-- 顶部固定区域：基础配置 -->
@@ -471,11 +471,20 @@
                     </el-col>
                   </el-row>
                   
+                  <el-form-item label="系统角色">
+                    <el-input
+                      v-model="scrapeForm.params.agent_system_prompt"
+                      type="textarea"
+                      :rows="4"
+                      placeholder="可选：定义 Agent 的系统角色或预置指令"
+                    />
+                  </el-form-item>
+
                   <el-form-item label="提取要求" required>
                     <el-input
                       v-model="scrapeForm.params.agent_prompt"
                       type="textarea"
-                      :rows="6"
+                      :rows="12"
                       placeholder="描述你想从页面提取的数据，例如：请提取房源标题、价格..."
                     />
                   </el-form-item>
@@ -485,6 +494,102 @@
                   <el-icon><InfoFilled /></el-icon>
                   <p>开启 Agent 能够利用 AI 智能识别页面结构并提取数据</p>
                   <el-button type="primary" plain @click="scrapeForm.params.agent_enabled = true">立即开启</el-button>
+                </div>
+              </div>
+            </el-tab-pane>
+            <!-- Tab 4: 交互步骤 (Skills) -->
+            <el-tab-pane name="skills">
+              <template #label>
+                <div class="tab-label">
+                  <el-icon><Pointer /></el-icon>
+                  <span>交互步骤 (Skills)</span>
+                </div>
+              </template>
+              
+              <div class="skills-tab-content">
+                <div class="agent-header-row">
+                  <div class="section-title">队列操作技能</div>
+                  <el-button type="primary" link @click="addInteractionStep">
+                    <el-icon><Plus /></el-icon> 添加步骤
+                  </el-button>
+                </div>
+
+                <div v-if="scrapeForm.params.interaction_steps?.length" class="skills-list">
+                  <div v-for="(step, index) in scrapeForm.params.interaction_steps" :key="index" class="skill-step-item">
+                    <div class="step-index">{{ index + 1 }}</div>
+                    
+                    <el-select v-model="step.action" placeholder="选择动作" style="width: 140px" @change="resetStepParams(index)">
+                      <el-option label="滚动 (Scroll)" value="scroll" />
+                      <el-option label="流式滚动 (Infinite)" value="infinite_scroll" />
+                      <el-option label="点击 (Click)" value="click" />
+                      <el-option label="翻页 (Next Page)" value="pagination" />
+                      <el-option label="填充 (Fill)" value="fill" />
+                      <el-option label="缩放 (Zoom)" value="zoom" />
+                      <el-option label="等待 (Wait)" value="wait" />
+                      <el-option label="提取坐标 (Coordinates)" value="extract_coordinates" />
+                    </el-select>
+
+                    <div class="step-params-config">
+                      <!-- 基础滚动参数 -->
+                      <template v-if="step.action === 'scroll'">
+                        <el-input v-model="step.params.selector" placeholder="容器选择器(默认window)" size="small" style="width: 180px" />
+                        <el-input-number v-model="step.params.distance" :step="100" placeholder="距离" size="small" style="width: 100px" />
+                      </template>
+
+                      <!-- 流式滚动参数 -->
+                      <template v-if="step.action === 'infinite_scroll'">
+                        <el-input v-model="step.params.selector" placeholder="容器选择器(默认window)" size="small" style="width: 180px" />
+                        <el-input-number v-model="step.params.max_scrolls" :min="1" :max="50" placeholder="最大次数" size="small" style="width: 100px" />
+                        <el-input-number v-model="step.params.delay" :min="500" :step="500" placeholder="延迟(ms)" size="small" style="width: 110px" />
+                      </template>
+
+                      <!-- 点击参数 -->
+                      <template v-if="step.action === 'click'">
+                        <el-input v-model="step.params.selector" placeholder="元素选择器" size="small" style="width: 250px" />
+                      </template>
+
+                      <!-- 翻页参数 -->
+                      <template v-if="step.action === 'pagination'">
+                        <el-select v-model="step.params.action" size="small" style="width: 100px">
+                          <el-option label="下一页" value="next" />
+                          <el-option label="上一页" value="prev" />
+                        </el-select>
+                        <el-input v-model="step.params.selector" placeholder="按钮选择器(可选)" size="small" style="width: 180px" />
+                      </template>
+
+                      <!-- 填充参数 -->
+                      <template v-if="step.action === 'fill'">
+                        <el-button type="info" plain size="small" @click="addFillPair(index)">添加字段</el-button>
+                        <div v-if="Object.keys(step.params.data || {}).length" class="fill-data-preview">
+                          已配置 {{ Object.keys(step.params.data).length }} 个字段
+                        </div>
+                      </template>
+
+                      <!-- 缩放参数 -->
+                      <template v-if="step.action === 'zoom'">
+                        <el-input v-model="step.params.selector" placeholder="容器选择器" size="small" style="width: 150px" />
+                        <el-select v-model="step.params.direction" size="small" style="width: 80px">
+                          <el-option label="放大" value="in" />
+                          <el-option label="缩小" value="out" />
+                        </el-select>
+                        <el-input-number v-model="step.params.times" :min="1" :max="10" size="small" style="width: 90px" />
+                      </template>
+
+                      <!-- 等待参数 -->
+                      <template v-if="step.action === 'wait'">
+                        <el-input-number v-model="step.params.duration" :min="100" :step="500" placeholder="ms" size="small" style="width: 120px" />
+                      </template>
+                    </div>
+
+                    <el-button type="danger" link @click="removeInteractionStep(index)">
+                      <el-icon><Delete /></el-icon>
+                    </el-button>
+                  </div>
+                </div>
+
+                <div v-else class="agent-disabled-placeholder mini">
+                  <p>添加交互步骤，在大规模抓取前执行预置操作</p>
+                  <el-button type="primary" plain size="small" @click="addInteractionStep">添加第一个步骤</el-button>
                 </div>
               </div>
             </el-tab-pane>
@@ -679,23 +784,42 @@
                 </div>
               </div>
 
-              <!-- 提取要求（用户提示词） -->
-              <div v-if="currentTask.result.agent_result.user_prompt" class="user-prompt-section">
-                <el-divider content-position="left">
-                  <el-icon><EditPen /></el-icon> 提取要求
-                </el-divider>
-                <div class="prompt-content">
-                  <pre>{{ currentTask.result.agent_result.user_prompt }}</pre>
-                </div>
-                <el-button 
-                  size="small" 
-                  type="warning" 
-                  @click="showSaveTemplateDialog"
-                  style="margin-top: 10px;"
-                >
-                  <el-icon><Collection /></el-icon> 保存为模板
-                </el-button>
-              </div>
+              <!-- 提示词折叠区域 -->
+              <el-collapse v-model="activeCollapsePrompt" class="prompt-collapse" style="margin-top: 15px;">
+                <!-- 系统提示词 -->
+                <el-collapse-item name="system" v-if="currentTask.result.agent_result.system_prompt">
+                  <template #title>
+                    <div class="collapse-title">
+                      <el-icon><Monitor /></el-icon>
+                      <span>系统提示词</span>
+                    </div>
+                  </template>
+                  <div class="prompt-content system">
+                    <pre>{{ currentTask.result.agent_result.system_prompt }}</pre>
+                  </div>
+                </el-collapse-item>
+
+                <!-- 提取要求（用户提示词） -->
+                <el-collapse-item name="user" v-if="currentTask.result.agent_result.user_prompt">
+                  <template #title>
+                    <div class="collapse-title">
+                      <el-icon><EditPen /></el-icon>
+                      <span>提取要求 (用户提示词)</span>
+                    </div>
+                  </template>
+                  <div class="prompt-content">
+                    <pre>{{ currentTask.result.agent_result.user_prompt }}</pre>
+                  </div>
+                  <el-button 
+                    size="small" 
+                    type="warning" 
+                    @click.stop="showSaveTemplateDialog"
+                    style="margin-top: 10px;"
+                  >
+                    <el-icon><Collection /></el-icon> 保存为模板
+                  </el-button>
+                </el-collapse-item>
+              </el-collapse>
 
               <!-- 原始响应 -->
               <el-collapse v-if="currentTask.result.agent_result.raw_response" style="margin-top: 15px;">
@@ -727,6 +851,38 @@
       <template #footer>
         <el-button @click="showSaveTemplateDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="confirmSaveTemplate">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 重试任务对话框 -->
+    <el-dialog v-model="showRetryDialog" title="重试任务" width="500px">
+      <el-form :model="retryForm" label-width="120px">
+        <el-form-item label="当前任务">
+          <div class="task-info-mini">
+            <div class="id-row">ID: <code>{{ retryForm.taskId }}</code></div>
+            <div class="url-row" :title="retryForm.url">URL: {{ retryForm.url }}</div>
+          </div>
+        </el-form-item>
+        
+        <el-form-item label="Agent 模型" v-if="retryForm.agentEnabled">
+          <el-select v-model="retryForm.agentModelId" style="width: 100%" placeholder="更改使用的模型 (可选)">
+            <el-option
+              v-for="model in llmModels"
+              :key="model._id"
+              :label="model.name"
+              :value="model._id"
+            >
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <el-tag size="small" type="info" effect="plain">{{ model.provider }}</el-tag>
+                <span>{{ model.name }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showRetryDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleRetry">确定重试</el-button>
       </template>
     </el-dialog>
 
@@ -832,6 +988,7 @@ const pageSize = ref(10)
 const total = ref(0)
 const activeTab = ref('info')
 const scrapeActiveTab = ref('browser') // 新建任务对话框的当前 Tab
+const activeCollapsePrompt = ref([]) // 任务详情中提示词的折叠状态
 
 // Prompt Templates
 const promptTemplates = ref([])
@@ -934,6 +1091,13 @@ const resetFilter = () => {
 
 const showScrapeDialog = ref(false)
 const showTaskDialog = ref(false)
+const showRetryDialog = ref(false)
+const retryForm = ref({
+  taskId: '',
+  url: '',
+  agentEnabled: false,
+  agentModelId: null
+})
 const scrapeForm = ref({
   url: '',
   params: {
@@ -960,6 +1124,7 @@ const scrapeForm = ref({
     intercept_continue: false,
     agent_enabled: false,
     agent_model_id: null,
+    agent_system_prompt: '',
     agent_prompt: ''
   },
   cache: {
@@ -1034,25 +1199,20 @@ const deleteTask = async (taskId) => {
 }
 
 const confirmRetry = (row) => {
-  ElMessageBox.confirm(
-    `确定要重新执行任务吗？\nURL: ${row.url}`,
-    '重试确认',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-      icon: WarningFilled,
-      buttonSize: 'default'
-    }
-  ).then(() => {
-    handleRetry(row.task_id)
-  }).catch(() => {})
+  retryForm.value = {
+    taskId: row.task_id,
+    url: row.url,
+    agentEnabled: !!row.params?.agent_enabled,
+    agentModelId: row.params?.agent_model_id || null
+  }
+  showRetryDialog.value = true
 }
 
-const handleRetry = async (taskId) => {
+const handleRetry = async () => {
   try {
+    showRetryDialog.value = false
     loading.value = true
-    await retryTask(taskId)
+    await retryTask(retryForm.value.taskId, retryForm.value.agentModelId)
     ElMessage.success('已重新提交任务')
     loadTasks()
   } catch (error) {
@@ -1110,6 +1270,11 @@ const submitTask = async () => {
     if (!submitData.params.viewport || !submitData.params.viewport.width || !submitData.params.viewport.height) {
       submitData.params.viewport = null
     }
+
+    // 交互步骤处理：如果为空则设为 null
+    if (!submitData.params.interaction_steps || submitData.params.interaction_steps.length === 0) {
+      submitData.params.interaction_steps = null
+    }
     
     await scrapeAsync(submitData)
     ElMessage.success('任务提交成功 (异步)')
@@ -1151,7 +1316,9 @@ const resetForm = () => {
       intercept_continue: false,
       agent_enabled: false,
       agent_model_id: null,
-      agent_prompt: ''
+      agent_system_prompt: '',
+      agent_prompt: '',
+      interaction_steps: []
     },
     cache: {
       enabled: true,
@@ -1318,6 +1485,7 @@ const applyTemplate = (templateId) => {
   if (!templateId) return
   const tpl = promptTemplates.value.find(t => t._id === templateId)
   if (tpl) {
+    scrapeForm.value.params.agent_system_prompt = tpl.system_content || ''
     scrapeForm.value.params.agent_prompt = tpl.content
     ElMessage.success(`已应用模板: ${tpl.name}`)
   }
@@ -1351,6 +1519,51 @@ const confirmSaveTemplate = async () => {
   } catch (error) {
     ElMessage.error('保存模板失败: ' + (error.response?.data?.detail || error.message))
   }
+}
+
+const addInteractionStep = () => {
+  if (!scrapeForm.value.params.interaction_steps) {
+    scrapeForm.value.params.interaction_steps = []
+  }
+  scrapeForm.value.params.interaction_steps.push({
+    action: 'scroll',
+    params: { distance: 500, selector: 'window' }
+  })
+}
+
+const removeInteractionStep = (index) => {
+  scrapeForm.value.params.interaction_steps.splice(index, 1)
+}
+
+const resetStepParams = (index) => {
+  const step = scrapeForm.value.params.interaction_steps[index]
+  const defaults = {
+    scroll: { distance: 500, selector: 'window' },
+    infinite_scroll: { max_scrolls: 10, delay: 1500, selector: 'window' },
+    pagination: { action: 'next', selector: '' },
+    zoom: { direction: 'in', times: 1, selector: '' },
+    fill: { data: {} },
+    click: { selector: '' },
+    wait: { duration: 1000 },
+    extract_coordinates: {}
+  }
+  step.params = JSON.parse(JSON.stringify(defaults[step.action] || {}))
+}
+
+const addFillPair = (index) => {
+  const step = scrapeForm.value.params.interaction_steps[index]
+  ElMessageBox.prompt('请输入字段选择器和内容 (格式: selector=value)', '添加表单字段', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+  }).then(({ value }) => {
+    if (value && value.includes('=')) {
+      const [k, v] = value.split('=')
+      if (!step.params.data) step.params.data = {}
+      step.params.data[k.trim()] = v.trim()
+    } else {
+      ElMessage.warning('格式错误，请使用 selector=value')
+    }
+  }).catch(() => {})
 }
 
 onMounted(() => {
@@ -2001,6 +2214,69 @@ onMounted(() => {
   word-break: break-all;
 }
 
+/* 交互步骤 (Skills) 样式 */
+.skills-tab-content {
+  padding: 5px;
+}
+
+.skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.skill-step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.skill-step-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.step-index {
+  width: 24px;
+  height: 24px;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.step-params-config {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.agent-disabled-placeholder.mini {
+  padding: 20px 0;
+}
+
+.fill-data-preview {
+  font-size: 12px;
+  color: #67c23a;
+  background: #f0f9eb;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
 /* Agent 配置样式 */
 .header-icon-box.agent {
   background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
@@ -2055,8 +2331,21 @@ onMounted(() => {
   overflow: auto;
 }
 
-.user-prompt-section {
-  margin-top: 15px;
+.prompt-collapse {
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.collapse-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  padding-left: 5px;
 }
 
 .prompt-content {
@@ -2064,6 +2353,11 @@ onMounted(() => {
   border: 1px solid #e4e7ed;
   border-radius: 6px;
   padding: 12px;
+}
+
+.prompt-content.system {
+  background: #f0f7ff;
+  border-color: #d1e9ff;
 }
 
 .prompt-content pre {
@@ -2093,6 +2387,39 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.task-create-dialog :deep(.el-dialog__body) {
+  max-height: 75vh;
+  overflow-y: auto;
+  padding: 15px 25px;
+}
+
+.task-info-mini {
+  background: #f8fafc;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.task-info-mini .id-row {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+
+.task-info-mini .url-row {
+  font-size: 13px;
+  color: #1e293b;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 </style>
 

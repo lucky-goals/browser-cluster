@@ -76,7 +76,7 @@
     </el-card>
 
     <!-- 新建/编辑对话框 -->
-    <el-dialog v-model="showDialog" :title="isEdit ? '编辑模板' : '新建模板'" width="600px" destroy-on-close>
+    <el-dialog v-model="showDialog" :title="isEdit ? '编辑模板' : '新建模板'" width="1000px" top="15vh" destroy-on-close class="template-dialog">
       <el-form :model="form" label-width="80px" :rules="formRules" ref="formRef">
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入模板名称" />
@@ -84,11 +84,35 @@
         <el-form-item label="描述">
           <el-input v-model="form.description" placeholder="可选：简要描述模板用途" />
         </el-form-item>
-        <el-form-item label="内容" prop="content">
+        <el-form-item label="系统角色">
+          <template #label>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span>系统角色</span>
+              <el-tooltip content="用于定义 AI Agent 的系统角色或预置指令 (role: system)" placement="top">
+                <el-icon><InfoFilled /></el-icon>
+              </el-tooltip>
+            </div>
+          </template>
+          <el-input
+            v-model="form.system_content"
+            type="textarea"
+            :rows="6"
+            placeholder="可选：请输入系统角色内容 (System Prompt)"
+          />
+        </el-form-item>
+        <el-form-item label="提取要求" prop="content">
+          <template #label>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span>提取要求</span>
+              <el-tooltip content="具体的数据提取要求和格式说明 (role: user)" placement="top">
+                <el-icon><InfoFilled /></el-icon>
+              </el-tooltip>
+            </div>
+          </template>
           <el-input
             v-model="form.content"
             type="textarea"
-            :rows="8"
+            :rows="12"
             placeholder="请输入提取要求的提示词内容"
           />
         </el-form-item>
@@ -123,6 +147,7 @@ const formRef = ref(null)
 const form = ref({
   name: '',
   description: '',
+  system_content: '',
   content: ''
 })
 
@@ -168,7 +193,7 @@ const handleSearch = () => {
 const showCreateDialog = () => {
   isEdit.value = false
   editId.value = null
-  form.value = { name: '', description: '', content: '' }
+  form.value = { name: '', description: '', system_content: '', content: '' }
   showDialog.value = true
 }
 
@@ -178,6 +203,7 @@ const showEditDialog = (row) => {
   form.value = {
     name: row.name,
     description: row.description || '',
+    system_content: row.system_content || '',
     content: row.content
   }
   showDialog.value = true
@@ -277,5 +303,15 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.template-dialog :deep(.el-dialog__body) {
+  max-height: 75vh;
+  padding-top: 10px;
+}
+
+.template-dialog :deep(.el-textarea__inner) {
+  max-height: 50vh;
+  overflow-y: auto;
 }
 </style>

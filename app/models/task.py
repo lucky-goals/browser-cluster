@@ -18,6 +18,12 @@ class ProxyConfig(BaseModel):
     password: Optional[str] = None
 
 
+class InteractionStep(BaseModel):
+    """交互步骤模型"""
+    action: str  # 动作类型：scroll, pagination, zoom, fill, click, wait
+    params: Dict[str, Any] = Field(default_factory=dict)  # 动作参数
+
+
 class ScrapeParams(BaseModel):
     """抓取参数模型"""
 
@@ -37,10 +43,13 @@ class ScrapeParams(BaseModel):
     stealth: bool = True  # 是否启用反检测 (stealth)
     intercept_apis: Optional[List[str]] = None  # 要拦截的接口 URL 模式列表
     intercept_continue: bool = False  # 拦截接口后是否继续请求 (默认 False)
+    # 交互步骤
+    interaction_steps: Optional[List[InteractionStep]] = None  # 任务执行过程中的交互步骤
     # Agent 相关配置
     agent_enabled: bool = False  # 是否启用 Agent 识别
     agent_model_id: Optional[str] = None  # 使用的 LLM 模型 ID
-    agent_prompt: Optional[str] = None  # Agent 提取要求/系统提示
+    agent_system_prompt: Optional[str] = None  # Agent 系统提示词内容
+    agent_prompt: Optional[str] = None  # Agent 提取要求/用户提示词
 
 
 class CacheConfig(BaseModel):

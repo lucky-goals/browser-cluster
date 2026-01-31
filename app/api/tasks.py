@@ -119,7 +119,9 @@ async def list_tasks(
         "created_at": 1,
         "updated_at": 1,
         "completed_at": 1,
-        "result.metadata.load_time": 1
+        "result.metadata.load_time": 1,
+        "params.agent_enabled": 1,
+        "params.agent_model_id": 1
     }
     tasks = mongo.tasks.find(query, projection).sort("created_at", -1).skip(skip).limit(limit)
 
@@ -135,7 +137,8 @@ async def list_tasks(
                 "created_at": task["created_at"],
                 "updated_at": task["updated_at"],
                 "completed_at": task.get("completed_at"),
-                "duration": task.get("result", {}).get("metadata", {}).get("load_time")
+                "duration": task.get("result", {}).get("metadata", {}).get("load_time"),
+                "params": task.get("params", {})
             }
             for task in tasks
         ]
@@ -163,12 +166,13 @@ async def delete_task(task_id: str):
 
 
 @router.post("/{task_id}/retry", response_model=TaskResponse)
-async def retry_task(task_id: str):
+async def retry_task(task_id: str, agent_model_id: str = None):
     """
     重试任务
 
     Args:
         task_id: 任务 ID
+        agent_model_id: 可选的新模型 ID
 
     Returns:
         TaskResponse: 更新后的任务信息
@@ -181,10 +185,16 @@ async def retry_task(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # 2. 更新任务状态为 pending，并清除之前的错误和结果
+    # 2. 如果提供了新的模型 ID，更新参数
+    params = task.get("params", {}).copy()
+    if agent_model_id:
+        params["agent_model_id"] = agent_model_id
+
+    # 3. 更新任务状态为 pending，并清除之前的错误和结果
     now = datetime.now()
     update_data = {
         "status": "pending",
+        "params": params,
         "error": None,
         "result": None,
         "cached": False,
@@ -195,11 +205,11 @@ async def retry_task(task_id: str):
 
     mongo.tasks.update_one({"task_id": task_id}, {"$set": update_data})
 
-    # 3. 重新提交到队列
+    # 4. 重新提交到队列
     queue_task = {
         "task_id": task_id,
         "url": task["url"],
-        "params": task["params"],
+        "params": params,
         "cache": task.get("cache", {"enabled": True, "ttl": 3600}),
         "priority": task.get("priority", 1)
     }

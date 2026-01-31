@@ -93,22 +93,68 @@
 | `agent_enabled` | bool | `false` | 是否开启 AI 智能提取 |
 | `agent_model_id` | string | `null` | 指定使用的 LLM 模型 ID (需在管理后台配置) |
 | `agent_prompt` | string | `null` | AI 提取指令/要求 |
+| `interaction_steps` | list | `[]` | 浏览器交互步骤 (Skills)，按顺序执行滚动、点击等操作 |
 | `intercept_apis` | list | `[]` | 接口拦截模式列表（支持正则） |
 | `wait_for` | string | `networkidle` | 等待策略：`networkidle`, `load`, `domcontentloaded` |
 | `screenshot` | bool | `false` | 是否生成页面截图 |
 | `stealth` | bool | `true` | 是否启用反检测 |
 
-### 示例请求 (带 AI 提取)
+## 🎭 浏览器交互技能 (Browser Skills)
+
+通过 `interaction_steps` 参数，你可以定义一系列预置操作，用于处理动态内容加载、翻页或地图缩放。
+
+### 常用操作类型
+- `scroll`: 滚动容器。参数: `selector` (容器选择器, `window` 表示全窗口), `distance` (滚动距离)。
+- `infinite_scroll`: 高级流式滚动。参数: `selector` (容器选择器), `max_scrolls` (最大滚动次数), `delay` (每次加载等待时间)。
+- `click`: 点击元素。参数: `selector` (元素选择器)。
+- `pagination`: 翻页。参数: `action` (`next`/`prev`), `selector` (可选按钮选择器)。
+- `zoom`: 地图缩放。参数: `selector` (地图容器), `direction` (`in`/`out`), `times` (次数)。
+- `wait`: 额外等待。参数: `duration` (毫秒)。
+
+### 选择器范例 (Selector Examples)
+
+| 类型 | 范例 | 说明 |
+| :--- | :--- | :--- |
+| **基础** | `window` | 全屏滚动 |
+| **基础** | `#main-content` | 按 ID 定位容器 |
+| **基础** | `.list-container` | 按类名定位滚动列表 |
+| **进阶** | `[data-testid="property-card"]` | 按开发者定义的测试 ID 定位（最稳健） |
+| **进阶** | `.search-results > ul` | 层级定位：选中结果面板下的 `ul` |
+| **复杂** | `section:has(h2:text("推荐"))` | 选中包含“推荐”文本标题的 `section` 容器 |
+| **复杂** | `div[class*="ScrollContainer"]` | 模糊匹配：匹配类名中包含 `ScrollContainer` 的元素 |
+
+### 示例请求 (多步骤交互 + AI 提取)
 
 ```json
 {
-  "url": "https://example.com/product/12345",
+  "url": "https://example.com/map",
   "params": {
+    "interaction_steps": [
+      { "action": "wait", "params": { "duration": 2000 } },
+      { "action": "scroll", "params": { "selector": "window", "distance": 1000 } },
+      { "action": "zoom", "params": { "selector": "#map", "direction": "in", "times": 2 } },
+      { "action": "click", "params": { "selector": "button.show-more" } }
+    ],
     "agent_enabled": true,
-    "agent_prompt": "提取商品名称、当前价格（数字）、是否有货（布尔值）和优惠信息。",
-    "proxy": {
-      "server": "http://your-proxy-host:port"
-    }
+    "agent_prompt": "提取图中显示的所有地点坐标及名称。"
+  }
+}
+```
+
+### 示例请求 (流式滚动加载更多)
+
+```json
+{
+  "url": "https://social-media.com/feed",
+  "params": {
+    "interaction_steps": [
+      { 
+        "action": "infinite_scroll", 
+        "params": { "selector": "window", "max_scrolls": 5, "delay": 2000 } 
+      }
+    ],
+    "agent_enabled": true,
+    "agent_prompt": "提取加载出来的所有动态内容及其发布者，要求提取前 50 条记录。"
   }
 }
 ```
