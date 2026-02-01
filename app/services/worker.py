@@ -57,6 +57,27 @@ class Worker:
         self.active_tasks.add(task_id)
 
         try:
+            # 检查是否启用缓存并命中
+            cache_config = task_data.get("cache", {})
+            if cache_config.get("enabled"):
+                cached_result = await cache_service.get(url, params)
+                if cached_result:
+                    logger.info(f"Task {task_id} hit cache in worker, skipping scrape")
+                    # 更新任务为成功状态并标记命中缓存
+                    # 注意：cached_result 就是完整的抓取结果
+                    update_data = {
+                        "status": "success",
+                        "result": cached_result,  # 缓存中存储的就是完整结果
+                        "cached": True,
+                        "html_cached": cached_result.get("html_cached", True),
+                        "agent_cached": cached_result.get("agent_cached", True),
+                        "node_id": self.node_id,
+                        "updated_at": datetime.now(),
+                        "completed_at": datetime.now()
+                    }
+                    mongo.tasks.update_one({"task_id": task_id}, {"$set": update_data})
+                    return
+
             # 更新任务状态为处理中
             await self._update_task_status(task_id, "processing", self.node_id)
 
@@ -74,14 +95,24 @@ class Worker:
                 await self._update_task_success(task_id, result)
 
                 # 如果启用缓存，则保存结果到缓存
+                # 但需要检查 agent_result 是否失败，失败的结果不应缓存
                 if task_data.get("cache", {}).get("enabled"):
-                    await cache_service.set(
-                        url,
-                        params,
-                        result,
-                        task_data["cache"].get("ttl"),
-                        task_id=task_id
-                    )
+                    should_cache = True
+                    agent_result = result.get("agent_result")
+                    if agent_result:
+                        agent_status = agent_result.get("status")
+                        if agent_status == "failed":
+                            should_cache = False
+                            logger.warning(f"Task {task_id}: Skipping cache due to failed agent_result")
+                    
+                    if should_cache:
+                        await cache_service.set(
+                            url,
+                            params,
+                            result,
+                            task_data["cache"].get("ttl"),
+                            task_id=task_id
+                        )
 
                 logger.info(f"Task {task_id} completed successfully")
             else:
@@ -131,6 +162,8 @@ class Worker:
                 "$set": {
                     "status": "success",
                     "result": result,
+                    "html_cached": result.get("html_cached", False),
+                    "agent_cached": result.get("agent_cached", False),
                     "updated_at": datetime.now(),
                     "completed_at": datetime.now()
                 }

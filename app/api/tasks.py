@@ -9,6 +9,7 @@ from datetime import datetime
 from app.models.task import TaskResponse, BatchDeleteRequest
 from app.db.mongo import mongo
 from app.services.queue_service import rabbitmq_service
+from app.services.cache_service import cache_service
 from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["Tasks"])
@@ -116,6 +117,8 @@ async def list_tasks(
         "url": 1,
         "status": 1,
         "cached": 1,
+        "html_cached": 1,
+        "agent_cached": 1,
         "node_id": 1,
         "created_at": 1,
         "updated_at": 1,
@@ -134,6 +137,8 @@ async def list_tasks(
                 "url": task["url"],
                 "status": task["status"],
                 "cached": task.get("cached", False),
+                "html_cached": task.get("html_cached", False),
+                "agent_cached": task.get("agent_cached", False),
                 "node_id": task.get("node_id"),
                 "created_at": task["created_at"],
                 "updated_at": task["updated_at"],
@@ -202,14 +207,54 @@ async def retry_task(
     if agent_parallel_batch_size is not None:
         params["agent_parallel_batch_size"] = agent_parallel_batch_size
 
-    # 3. 更新任务状态为 pending，并清除之前的错误和结果
+    # 3. 检查是否启用缓存并命中
+    cache_config = task.get("cache", {"enabled": True, "ttl": 3600})
+    cache_key = cache_service.generate_cache_key(task["url"], params)
+    
+    if cache_config.get("enabled"):
+        cached_result = await cache_service.get(task["url"], params)
+        if cached_result:
+            # 命中缓存，直接更新任务并返回
+            # 注意：cached_result 就是完整的抓取结果，不需要再取 .get("result")
+            now = datetime.now()
+            update_data = {
+                "status": "success",
+                "params": params,
+                "result": cached_result,  # 缓存中存储的就是完整结果
+                "cache_key": cache_key,
+                "cached": True,
+                "html_cached": cached_result.get("html_cached", True),
+                "agent_cached": cached_result.get("agent_cached", True),
+                "node_id": "cache",
+                "updated_at": now,
+                "completed_at": cached_result.get("completed_at") or now
+            }
+            mongo.tasks.update_one({"task_id": task_id}, {"$set": update_data})
+            
+            return TaskResponse(
+                task_id=task_id,
+                url=task["url"],
+                status="success",
+                result=update_data["result"],
+                cached=True,
+                html_cached=update_data["html_cached"],
+                agent_cached=update_data["agent_cached"],
+                created_at=task["created_at"],
+                updated_at=now,
+                completed_at=update_data["completed_at"]
+            )
+
+    # 4. 未命中缓存，更新任务状态为 pending，并清除之前的错误和结果
     now = datetime.now()
     update_data = {
         "status": "pending",
         "params": params,
+        "cache_key": cache_key,
         "error": None,
         "result": None,
         "cached": False,
+        "html_cached": False,
+        "agent_cached": False,
         "updated_at": now,
         "completed_at": None,
         "node_id": None

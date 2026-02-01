@@ -61,6 +61,8 @@ async def scrape(request: ScrapeRequest, current_user: dict = Depends(get_curren
                 "result": cached.get("result"),
                 "cache_key": cache_key,
                 "cached": True,
+                "html_cached": cached.get("html_cached", True),
+                "agent_cached": cached.get("agent_cached", True),
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
                 "completed_at": cached.get("completed_at") or datetime.now()
@@ -72,7 +74,7 @@ async def scrape(request: ScrapeRequest, current_user: dict = Depends(get_curren
                 url=url,
                 status=task_data["status"],
                 result=task_data["result"],
-                cached=True,
+                cached=True, html_cached=task_data["html_cached"], agent_cached=task_data["agent_cached"],
                 created_at=task_data["created_at"],
                 updated_at=task_data["updated_at"],
                 completed_at=task_data["completed_at"]
@@ -88,6 +90,8 @@ async def scrape(request: ScrapeRequest, current_user: dict = Depends(get_curren
         "cache": request.cache.model_dump(),
         "cache_key": cache_key,
         "cached": False,
+        "html_cached": False,
+        "agent_cached": False,
         "created_at": datetime.now(),
         "updated_at": datetime.now()
     }
@@ -135,7 +139,9 @@ async def scrape(request: ScrapeRequest, current_user: dict = Depends(get_curren
                     status=task["status"],
                     result=task.get("result"),
                     error=task.get("error"),
-                    cached=False,
+                    cached=task.get("cached", False),
+                    html_cached=task.get("html_cached", False),
+                    agent_cached=task.get("agent_cached", False),
                     created_at=task["created_at"],
                     updated_at=task["updated_at"],
                     completed_at=task.get("completed_at")
@@ -173,6 +179,39 @@ async def scrape_async(request: ScrapeRequest, current_user: dict = Depends(get_
     task_id = str(ObjectId())
     cache_key = cache_service.generate_cache_key(url, params)
 
+    # 如果启用缓存，尝试从缓存获取
+    if request.cache.enabled:
+        cached = await cache_service.get(url, params)
+        if cached:
+            # 即便是缓存命中，我们也记录一条任务记录到数据库，方便用户在列表中看到
+            task_data = {
+                "task_id": task_id,
+                "url": url,
+                "status": cached.get("status", "success"),
+                "priority": request.priority,
+                "params": params,
+                "result": cached.get("result"),
+                "cache_key": cache_key,
+                "cached": True,
+                "html_cached": cached.get("html_cached", True),
+                "agent_cached": cached.get("agent_cached", True),
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+                "completed_at": cached.get("completed_at") or datetime.now()
+            }
+            mongo.tasks.insert_one(task_data)
+
+            return TaskResponse(
+                task_id=task_id,
+                url=url,
+                status=task_data["status"],
+                result=task_data["result"],
+                cached=True, html_cached=task_data["html_cached"], agent_cached=task_data["agent_cached"],
+                created_at=task_data["created_at"],
+                updated_at=task_data["updated_at"],
+                completed_at=task_data["completed_at"]
+            )
+
     # 构建任务数据
     task_data = {
         "task_id": task_id,
@@ -183,6 +222,8 @@ async def scrape_async(request: ScrapeRequest, current_user: dict = Depends(get_
         "cache": request.cache.model_dump(),
         "cache_key": cache_key,
         "cached": False,
+        "html_cached": False,
+        "agent_cached": False,
         "created_at": datetime.now(),
         "updated_at": datetime.now()
     }
@@ -252,8 +293,12 @@ async def scrape_batch(request: BatchScrapeRequest, current_user: dict = Depends
             "priority": req.priority,
             "params": params,
             "cache": req.cache.model_dump(),
+            "html_cached": False,
+            "agent_cached": False,
             "cache_key": cache_key,
             "cached": False,
+            "html_cached": False,
+            "agent_cached": False,
             "created_at": datetime.now(),
             "updated_at": datetime.now()
         }

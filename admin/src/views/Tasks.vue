@@ -139,7 +139,14 @@
                 <el-icon><Cpu /></el-icon>
                 <span class="label">{{ $t('tasks.stats.cache') }}</span>
                 <el-tag :type="row.cached ? 'success' : 'info'" size="small" effect="light" class="cache-tag">
-                  {{ row.cached ? $t('tasks.stats.cacheHit') : $t('tasks.stats.cacheSkip') }}
+                  <div class="cache-tag-content">
+                    <span>{{ row.cached ? $t('tasks.stats.cacheHit') : $t('tasks.stats.cacheSkip') }}</span>
+                    <div v-if="row.cached" class="cache-split-mini">
+                      <span v-if="row.html_cached" class="split-dot html" :title="$t('tasks.stats.htmlHit')">H</span>
+                      <span v-if="row.agent_cached" class="split-dot ai" :title="$t('tasks.stats.aiHit')">A</span>
+                      <span v-else-if="row.result?.agent_result?.cache_hits > 0" class="split-dot partial" :title="`${$t('tasks.stats.partialHit')}: ${row.result.agent_result.cache_hits}/${row.result.agent_result.total_chunks}`">P</span>
+                    </div>
+                  </div>
                 </el-tag>
               </div>
               <div class="stat-item">
@@ -220,23 +227,23 @@
     <el-dialog 
       v-model="showScrapeDialog" 
       :title="$t('tasks.createDialog.title')" 
-      width="900px" 
+      width="1000px" 
       destroy-on-close 
-      top="15vh"
+      top="3vh"
       class="bento-dialog task-create-dialog"
     >
       <el-form :model="scrapeForm" label-width="100px" label-position="top">
         <!-- 顶部固定区域：基础配置 -->
         <el-card shadow="never" class="basic-config-card">
           <el-row :gutter="20">
-            <el-col :span="14">
+            <el-col :span="18">
               <el-form-item :label="$t('tasks.createDialog.targetUrl')" required class="mb-0">
                 <el-input v-model="scrapeForm.url" placeholder="https://example.com" clearable>
                   <template #prefix><el-icon><Connection /></el-icon></template>
                 </el-input>
               </el-form-item>
             </el-col>
-            <el-col :span="5">
+            <el-col :span="6">
               <el-form-item :label="$t('tasks.createDialog.priority')" class="mb-0">
                 <el-select v-model="scrapeForm.priority" style="width: 100%">
                   <el-option :label="$t('tasks.createDialog.priorityHigh')" :value="10" />
@@ -245,7 +252,9 @@
                 </el-select>
               </el-form-item>
             </el-col>
-            <el-col :span="5">
+          </el-row>
+          <el-row :gutter="20" style="margin-top: 10px;">
+            <el-col :span="8">
               <el-form-item :label="$t('tasks.createDialog.cache')" class="mb-0">
                 <div class="compact-switch-wrapper">
                   <el-switch v-model="scrapeForm.cache.enabled" />
@@ -253,9 +262,7 @@
                 </div>
               </el-form-item>
             </el-col>
-          </el-row>
-          <el-row v-if="scrapeForm.cache.enabled" style="margin-top: 15px;">
-            <el-col :span="24">
+            <el-col :span="16" v-if="scrapeForm.cache.enabled">
               <el-form-item :label="$t('tasks.createDialog.cacheTTL')" class="mb-0">
                 <el-input-number v-model="scrapeForm.cache.ttl" :min="60" :step="60" style="width: 200px" />
               </el-form-item>
@@ -499,7 +506,7 @@
                     <el-input
                       v-model="scrapeForm.params.agent_prompt"
                       type="textarea"
-                      :rows="12"
+                      :rows="6"
                       :placeholder="$t('tasks.createDialog.agent.promptPlaceholder')"
                     />
                   </el-form-item>
@@ -667,10 +674,27 @@
               </el-descriptions-item>
               <el-descriptions-item :label="$t('tasks.detail.info.created')">{{ formatDate(currentTask.created_at) }}</el-descriptions-item>
               <el-descriptions-item :label="$t('tasks.detail.info.completed')">{{ formatDate(currentTask.completed_at) || '-' }}</el-descriptions-item>
-               <el-descriptions-item :label="$t('tasks.detail.info.cache')">
-                <el-tag :type="currentTask.cached ? 'success' : 'info'" size="default">
-                  {{ currentTask.cached ? $t('tasks.detail.info.hit') : $t('tasks.detail.info.miss') }}
-                </el-tag>
+              <el-descriptions-item :label="$t('tasks.detail.info.cache')">
+                <div class="cache-info-detail">
+                  <el-tag :type="currentTask.cached ? 'success' : 'info'" size="default">
+                    {{ currentTask.cached ? $t('tasks.detail.info.hit') : $t('tasks.detail.info.miss') }}
+                  </el-tag>
+                  <div v-if="currentTask.cached" class="cache-split-details">
+                    <el-tag v-if="currentTask.html_cached" type="success" size="small" effect="plain" class="split-tag">
+                      {{ $t('tasks.stats.htmlHit') }}
+                    </el-tag>
+                    <el-tag v-if="currentTask.agent_cached" type="success" size="small" effect="plain" class="split-tag">
+                      {{ $t('tasks.stats.aiHit') }}
+                    </el-tag>
+                    <el-tooltip v-else-if="currentTask.result?.agent_result?.cache_hits > 0" 
+                                :content="`${$t('tasks.stats.partialHit')}: ${currentTask.result.agent_result.cache_hits}/${currentTask.result.agent_result.total_chunks}`" 
+                                placement="top">
+                      <el-tag type="warning" size="small" effect="plain" class="split-tag">
+                        {{ $t('tasks.stats.partialHit') }}
+                      </el-tag>
+                    </el-tooltip>
+                  </div>
+                </div>
               </el-descriptions-item>
               <el-descriptions-item :label="$t('tasks.detail.info.node')">{{ currentTask.node_id || '-' }}</el-descriptions-item>
               <el-descriptions-item :label="$t('tasks.detail.info.proxy')" v-if="currentTask.params?.proxy" :span="2">
@@ -2575,11 +2599,82 @@ onMounted(() => {
   text-overflow: ellipsis;
   display: block;
 }
+
+/* 缓存分拆样式 */
+.cache-tag-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cache-split-mini {
+  display: flex;
+  gap: 2px;
+  margin-left: 2px;
+}
+
+.split-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: bold;
+  color: white;
+  line-height: 1;
+}
+
+.split-dot.html { background-color: #10b981; }
+.split-dot.ai   { background-color: #3b82f6; }
+.split-dot.partial { background-color: #f59e0b; }
+
+.cache-info-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cache-split-details {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.split-tag {
+  font-size: 11px;
+}
 </style>
 
 <style>
 /* 全局样式：模板下拉框宽度限制 */
 .template-select-dropdown {
   max-width: 350px !important;
+}
+
+/* 紧凑型弹窗样式 */
+.task-create-dialog .el-dialog__body {
+  padding: 10px 25px !important; 
+}
+.task-create-dialog .el-form-item {
+  margin-bottom: 8px;
+}
+.task-create-dialog .el-form-item__label {
+  padding-bottom: 2px !important;
+  margin-bottom: 2px !important;
+}
+.task-create-dialog .el-card__body {
+  padding: 12px;
+}
+.task-create-dialog .config-section {
+  margin-bottom: 15px;
+}
+.task-create-dialog .section-title {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.task-create-dialog .el-divider--horizontal {
+  margin: 15px 0;
 }
 </style>

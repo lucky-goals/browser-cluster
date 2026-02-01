@@ -42,161 +42,230 @@ class Scraper:
 
         print(f"Scraping URL: {url} with params: {params}")
 
+        # 设置缓存标志
+        html_cached = False
+        agent_cached = False
+        
+        # 结果初始化
+        result = {}
+
         try:
-            # 获取 User-Agent
-            user_agent = params.get("user_agent") or settings.user_agent
+            # 1. 检查网页抓取缓存 (HTML Cache)
+            from app.services.cache_service import cache_service
+            if params.get("cache_enabled", settings.cache_enabled):
+                cached_html = await cache_service.get_html(url, params)
+                if cached_html:
+                    logger.info(f"HTML cache hit for URL: {url}")
+                    html_cached = True
+                    # 使用缓存数据
+                    result = {
+                        "status": "success",
+                        "html": cached_html.get("html"),
+                        "screenshot": cached_html.get("screenshot"),
+                        "metadata": cached_html.get("metadata"),
+                        "intercepted_apis": cached_html.get("intercepted_apis"),
+                        "skill_results": cached_html.get("skill_results"),
+                        "visual_content": cached_html.get("visual_content"),
+                    }
+                    # 补充必要的上下文变量以便后续 AI 提取使用
+                    screenshot = result["screenshot"]
+                    visual_content = result.get("visual_content")
+                    skill_results = result.get("skill_results") or {}
+                    interaction_steps = params.get("interaction_steps")
+                    # 如果缓存里没有 visual_content，可能需要后续补充（向下兼容）
+            
+            # 2. 如果没命中 HTML 缓存，执行真实抓取
+            if not html_cached:
+                # 获取 User-Agent
+                user_agent = params.get("user_agent") or settings.user_agent
 
-            # 处理代理配置
-            proxy_config = params.get("proxy")
-            browser = await browser_manager.get_browser()
+                # 处理代理配置
+                proxy_config = params.get("proxy")
+                browser = await browser_manager.get_browser()
 
-            # 创建浏览器上下文参数
-            context_options = {"java_script_enabled": True, "user_agent": user_agent}
+                # 创建浏览器上下文参数
+                context_options = {"java_script_enabled": True, "user_agent": user_agent}
 
-            if proxy_config:
-                context_options["proxy"] = {
-                    "server": proxy_config.get("server"),
-                }
-                # 添加代理认证
-                if proxy_config.get("username"):
-                    context_options["proxy"]["username"] = proxy_config["username"]
-                if proxy_config.get("password"):
-                    context_options["proxy"]["password"] = proxy_config["password"]
+                if proxy_config:
+                    context_options["proxy"] = {
+                        "server": proxy_config.get("server"),
+                    }
+                    # 添加代理认证
+                    if proxy_config.get("username"):
+                        context_options["proxy"]["username"] = proxy_config["username"]
+                    if proxy_config.get("password"):
+                        context_options["proxy"]["password"] = proxy_config["password"]
 
-            # 创建新的上下文（确保 User-Agent 和 代理设置生效）
-            context = await browser.new_context(**context_options)
-            page = await context.new_page()
+                # 创建新的上下文（确保 User-Agent 和 代理设置生效）
+                context = await browser.new_context(**context_options)
+                page = await context.new_page()
 
-            # 设置视口大小
-            if params.get("viewport"):
-                await page.set_viewport_size(params["viewport"])
+                # 设置视口大小
+                if params.get("viewport"):
+                    await page.set_viewport_size(params["viewport"])
 
-            # 注入反检测脚本
-            if params.get("stealth", settings.stealth_mode):
-                await Stealth().apply_stealth_async(page)
+                # 注入反检测脚本
+                if params.get("stealth", settings.stealth_mode):
+                    await Stealth().apply_stealth_async(page)
 
-            # 设置接口拦截
-            intercept_apis = params.get("intercept_apis", [])
-            if intercept_apis:
-                intercept_continue = params.get("intercept_continue", False)
-                await self._setup_api_interception(
-                    page, intercept_apis, intercepted_data, intercept_continue
+                # 设置接口拦截
+                intercept_apis = params.get("intercept_apis", [])
+                if intercept_apis:
+                    intercept_continue = params.get("intercept_continue", False)
+                    await self._setup_api_interception(
+                        page, intercept_apis, intercepted_data, intercept_continue
+                    )
+
+                # 拦截资源（图片、媒体等）
+                if params.get("block_images", settings.block_images) or params.get(
+                    "block_media", settings.block_media
+                ):
+                    await self._block_resources(page, params)
+
+                # 获取等待策略和超时设置
+                wait_for = params.get("wait_for", settings.default_wait_for)
+                wait_time = params.get("wait_time", 3000)
+                timeout = params.get("timeout", settings.default_timeout)
+
+                # 导航到目标 URL
+                response = None
+                try:
+                    response = await page.goto(url, wait_until=wait_for, timeout=timeout)
+                except PlaywrightTimeoutError:
+                    # 超时容错：如果已经有响应或页面有内容，则继续
+                    if not page.is_closed():
+                        html_preview = await page.content()
+                        if len(html_preview) > 200:  # 认为页面已经加载了部分内容
+                            pass
+                        else:
+                            raise  # 页面内容太少，还是抛出超时异常
+
+                # 等待特定选择器
+                if params.get("selector"):
+                    try:
+                        await page.wait_for_selector(params["selector"], timeout=timeout)
+                    except PlaywrightTimeoutError:
+                        # 如果已经有内容，选择器超时也可以容忍
+                        pass
+
+                # 额外等待时间
+                if wait_time > 0:
+                    await page.wait_for_timeout(wait_time)
+
+                # 执行交互步骤 (Interaction Steps / Skills)
+                interaction_steps = params.get("interaction_steps")
+                skill_results = {}
+                if interaction_steps:
+                    from app.core.skills import SKILLS_MAP, BrowserSkills
+                    logger.info(f"Executing {len(interaction_steps)} interaction steps")
+                    for i, step in enumerate(interaction_steps):
+                        # 兼容模型对象或字典
+                        if hasattr(step, "model_dump"):
+                            step = step.model_dump()
+                        
+                        action = step.get("action")
+                        step_params = step.get("params", {})
+                        
+                        if action in SKILLS_MAP:
+                            logger.info(f"Executing built-in skill: {action} with params: {step_params}")
+                            skill_func = SKILLS_MAP[action]
+                            skill_res = await skill_func(page, **step_params)
+                        else:
+                            # 尝试从数据库加载动态技能
+                            logger.info(f"Skill '{action}' not in built-in map, trying dynamic skill")
+                            skill_res = await BrowserSkills.execute_dynamic_skill(page, action, **step_params)
+                        
+                        # 记录有意义的返回结果 (非布尔值或 None)
+                        if skill_res not in [True, False, None]:
+                            skill_results[f"{action}_{i}"] = skill_res
+                    
+                    # 交互完成后再次等待网络空闲，确保内容加载完毕
+                    try:
+                        await page.wait_for_load_state("networkidle", timeout=5000)
+                    except:
+                        pass
+
+                # 获取页面 HTML
+                html = await page.content()
+                actual_url = page.url  # 获取重定向后的实际 URL
+
+                # 计算加载时间
+                load_time = time.time() - start_time
+
+                # 获取页面标题和状态码
+                title = ""
+                status_code = 0
+                try:
+                    title = await page.title()
+                    if response:
+                        status_code = response.status
+                    else:
+                        # 如果 response 为空（超时），尝试从 main_frame 获取
+                        status_code = 200  # 默认为 200，因为我们能拿到内容
+                except:
+                    pass
+
+                # 可选：截图
+                screenshot = None
+                if params.get("screenshot"):
+                    try:
+                        # 使用 is_fullscreen 参数控制是否全页截图，默认 False
+                        is_fullscreen = params.get("is_fullscreen", False)
+                        screenshot_bytes = await page.screenshot(full_page=is_fullscreen)
+                        screenshot = base64.b64encode(screenshot_bytes).decode()
+                    except:
+                        pass
+                
+                # 提取视觉块状内容 (用于 AI 识别和缓存)
+                # 注意：这里需要根据交互步骤中的 selector 提取
+                container_selector = None
+                exclude_selectors = None
+                if interaction_steps:
+                    for step in interaction_steps:
+                        if hasattr(step, "model_dump"): step = step.model_dump()
+                        if step.get("action") == "block_container":
+                            container_selector = step.get("params", {}).get("selector")
+                        elif step.get("action") == "exclude_elements":
+                            exclude_selectors = step.get("params", {}).get("selectors")
+
+                visual_content = await self._extract_visual_content(
+                    page, 
+                    container_selector=container_selector, 
+                    exclude_selectors=exclude_selectors
                 )
 
-            # 拦截资源（图片、媒体等）
-            if params.get("block_images", settings.block_images) or params.get(
-                "block_media", settings.block_media
-            ):
-                await self._block_resources(page, params)
+                # 构建成功结果 (Scraping 部分)
+                result = {
+                    "status": "success",
+                    "html": html,
+                    "screenshot": screenshot,
+                    "metadata": {
+                        "title": title,
+                        "url": url,
+                        "actual_url": actual_url,
+                        "status_code": status_code,
+                        "load_time": load_time,
+                        "timestamp": time.time(),
+                    },
+                    "skill_results": skill_results,
+                    "visual_content": visual_content,
+                }
 
-            # 获取等待策略和超时设置
-            wait_for = params.get("wait_for", settings.default_wait_for)
-            wait_time = params.get("wait_time", 3000)
-            timeout = params.get("timeout", settings.default_timeout)
+                if intercepted_data:
+                    result["intercepted_apis"] = intercepted_data
 
-            # 导航到目标 URL
-            response = None
-            try:
-                response = await page.goto(url, wait_until=wait_for, timeout=timeout)
-            except PlaywrightTimeoutError:
-                # 超时容错：如果已经有响应或页面有内容，则继续
-                if not page.is_closed():
-                    html_preview = await page.content()
-                    if len(html_preview) > 200:  # 认为页面已经加载了部分内容
-                        pass
-                    else:
-                        raise  # 页面内容太少，还是抛出超时异常
-
-            # 等待特定选择器
-            if params.get("selector"):
-                try:
-                    await page.wait_for_selector(params["selector"], timeout=timeout)
-                except PlaywrightTimeoutError:
-                    # 如果已经有内容，选择器超时也可以容忍
-                    pass
-
-            # 额外等待时间
-            if wait_time > 0:
-                await page.wait_for_timeout(wait_time)
-
-            # 执行交互步骤 (Interaction Steps / Skills)
-            interaction_steps = params.get("interaction_steps")
-            skill_results = {}
-            if interaction_steps:
-                from app.core.skills import SKILLS_MAP, BrowserSkills
-                logger.info(f"Executing {len(interaction_steps)} interaction steps")
-                for i, step in enumerate(interaction_steps):
-                    # 兼容模型对象或字典
-                    if hasattr(step, "model_dump"):
-                        step = step.model_dump()
+                # 保存 HTML 缓存 (仅当抓取成功且 visual_content 不含错误时)
+                if params.get("cache_enabled", settings.cache_enabled):
+                    # 检查 visual_content 是否包含错误信息
+                    should_cache = True
+                    if visual_content and isinstance(visual_content, str):
+                        if "Failed to extract" in visual_content or "Error" in visual_content:
+                            should_cache = False
+                            logger.warning(f"Skipping HTML cache due to failed visual content extraction")
                     
-                    action = step.get("action")
-                    step_params = step.get("params", {})
-                    
-                    if action in SKILLS_MAP:
-                        logger.info(f"Executing built-in skill: {action} with params: {step_params}")
-                        skill_func = SKILLS_MAP[action]
-                        skill_res = await skill_func(page, **step_params)
-                    else:
-                        # 尝试从数据库加载动态技能
-                        logger.info(f"Skill '{action}' not in built-in map, trying dynamic skill")
-                        skill_res = await BrowserSkills.execute_dynamic_skill(page, action, **step_params)
-                    
-                    # 记录有意义的返回结果 (非布尔值或 None)
-                    if skill_res not in [True, False, None]:
-                        skill_results[f"{action}_{i}"] = skill_res
-                
-                # 交互完成后再次等待网络空闲，确保内容加载完毕
-                try:
-                    await page.wait_for_load_state("networkidle", timeout=5000)
-                except:
-                    pass
-
-            # 获取页面 HTML
-            html = await page.content()
-            actual_url = page.url  # 获取重定向后的实际 URL
-
-            # 计算加载时间
-            load_time = time.time() - start_time
-
-            # 获取页面标题和状态码
-            title = ""
-            status_code = 0
-            try:
-                title = await page.title()
-                if response:
-                    status_code = response.status
-                else:
-                    # 如果 response 为空（超时），尝试从 main_frame 获取
-                    status_code = 200  # 默认为 200，因为我们能拿到内容
-            except:
-                pass
-
-            # 可选：截图
-            screenshot = None
-            if params.get("screenshot"):
-                try:
-                    # 使用 is_fullscreen 参数控制是否全页截图，默认 False
-                    is_fullscreen = params.get("is_fullscreen", False)
-                    screenshot_bytes = await page.screenshot(full_page=is_fullscreen)
-                    screenshot = base64.b64encode(screenshot_bytes).decode()
-                except:
-                    pass
-
-            # 返回成功结果
-            result = {
-                "status": "success",
-                "html": html,
-                "screenshot": screenshot,
-                "metadata": {
-                    "title": title,
-                    "url": url,
-                    "actual_url": actual_url,
-                    "status_code": status_code,
-                    "load_time": load_time,
-                    "timestamp": time.time(),
-                },
-            }
+                    if should_cache:
+                        ttl = params.get("cache", {}).get("ttl")
+                        await cache_service.set_html(url, params, result, ttl=ttl)
 
             # 如果有拦截的接口数据，添加到结果中
             if intercepted_data:
@@ -230,12 +299,13 @@ class Scraper:
                 interaction_steps = interaction_steps_dicts
                 exclude_selectors = ";".join(exclude_selectors_list) if exclude_selectors_list else None
 
-                # 优化：提取视觉块状内容
-                visual_content = await self._extract_visual_content(
-                    page, 
-                    container_selector=container_selector, 
-                    exclude_selectors=exclude_selectors
-                )
+                # 优化：提取视觉块状内容 (仅当没有从缓存获取到时)
+                if not visual_content:
+                    visual_content = await self._extract_visual_content(
+                        page, 
+                        container_selector=container_selector, 
+                        exclude_selectors=exclude_selectors
+                    )
                 
                 # 如果有技能执行结果，将其注入到内容中，方便 LLM 提取
                 if skill_results:
@@ -292,6 +362,8 @@ class Scraper:
                     status = "success"
                     error_msg = None
                     
+                    total_cache_hits = 0
+                    
                     for i, res in enumerate(chunk_results):
                         # 获取使用的模型信息 (无论成功失败都尝试获取)
                         if not used_model_name and res.get("model_name"):
@@ -315,6 +387,9 @@ class Scraper:
                         if usage:
                             total_prompt_tokens += (usage.get("prompt_tokens") or 0)
                             total_completion_tokens += (usage.get("completion_tokens") or 0)
+                        
+                        # 累加缓存命中
+                        total_cache_hits += res.get("cache_hits", 0)
                         
                         # 耗时取最大值
                         max_processing_time = max(max_processing_time, (res.get("processing_time") or 0))
@@ -347,11 +422,14 @@ class Scraper:
                             "total_tokens": total_prompt_tokens + total_completion_tokens
                         },
                         "processing_time": max_processing_time,
+                        "cache_hits": total_cache_hits,
+                        "total_chunks": len(chunks),
                         "parallel_info": {
                             "enabled": True,
                             "chunks": len(chunks),
                             "batch_size": batch_size,
-                            "success_count": success_count
+                            "success_count": success_count,
+                            "cache_hits": total_cache_hits
                         }
                     }
                 else:
@@ -367,6 +445,18 @@ class Scraper:
                 result["agent_result"] = agent_result
                 # 将视觉内容存入结果，方便调试
                 result["visual_content"] = visual_content
+                
+                # 设置 AI 缓存标志
+                if agent_result.get("cache_hits", 0) > 0:
+                    if agent_result.get("total_chunks", 1) == agent_result.get("cache_hits"):
+                        agent_cached = True
+                    else:
+                        # 部分命中 (在结果中体现)
+                        pass
+
+            # 最终整合缓存标志到结果
+            result["html_cached"] = html_cached
+            result["agent_cached"] = agent_cached
 
             return result
 
@@ -635,22 +725,24 @@ class Scraper:
         await page.route("**/*", route_handler)
 
     async def _run_agent_extraction(
-        self, content: str, screenshot: str, model_id: str, user_prompt: str, system_prompt: Optional[str] = None, skills: List[str] = None
+        self, content: str, screenshot: str, model_id: str, user_prompt: str, system_prompt: Optional[str] = None, skills: List[str] = None, cache_enabled: bool = True
     ) -> dict:
         """
-        运行 Agent 内容提取
-
-        Args:
-            html: 网页 HTML 内容
-            screenshot: 截图 base64 编码
-            model_id: LLM 模型 ID
-            user_prompt: 用户的提取要求
-
-        Returns:
-            dict: Agent 提取结果
+        运行 Agent 内容提取 (带缓存检查)
         """
         from app.services.llm_agent import get_llm_agent
         from app.models.llm import AgentResult, AgentStatus
+        from app.services.cache_service import cache_service
+
+        # 1. 检查 LLM 缓存
+        if cache_enabled and settings.cache_enabled:
+            cached_result = await cache_service.get_llm(content, model_id, user_prompt, system_prompt)
+            if cached_result:
+                logger.info(f"LLM cache hit for content hash")
+                # 标记为命中
+                cached_result["cache_hits"] = 1
+                cached_result["total_chunks"] = 1
+                return cached_result
 
         try:
             agent = await get_llm_agent(model_id)
@@ -658,7 +750,8 @@ class Scraper:
                 return AgentResult(
                     status=AgentStatus.FAILED,
                     error=f"Model {model_id} not found or disabled",
-                ).model_dump()
+                    total_chunks=1
+                ).model_dump(mode='json')
 
             logger.info(f"Agent extraction started for task using model: {agent.model_name} ({model_id})")
             result = await agent.extract_content(
@@ -669,14 +762,25 @@ class Scraper:
                 skills=skills
             )
             logger.info(f"Agent extraction completed using model: {agent.model_name}")
-            return result.model_dump()
+            
+            # 转为字典并补全统计信息 (使用 mode='json' 以解析 datetime)
+            res_dict = result.model_dump(mode='json')
+            res_dict["cache_hits"] = 0
+            res_dict["total_chunks"] = 1
+            
+            # 2. 保存 LLM 缓存 (仅成功时)
+            if cache_enabled and settings.cache_enabled and result.status == AgentStatus.SUCCESS:
+                await cache_service.set_llm(content, model_id, user_prompt, res_dict, system_prompt=system_prompt)
+                
+            return res_dict
 
         except Exception as e:
             return AgentResult(
                 status=AgentStatus.FAILED, 
                 error=str(e),
-                model_id=model_id
-            ).model_dump()
+                model_id=model_id,
+                total_chunks=1
+            ).model_dump(mode='json')
 
 
 # 全局抓取器实例

@@ -120,5 +120,7 @@ class AgentResult(BaseModel):
     processing_time: Optional[float] = None  # 处理耗时（秒）
     error: Optional[str] = None  # 错误信息
     parallel_info: Optional[Dict[str, Any]] = None  # 并行提取信息 (chunks, batch_size 等)
+    cache_hits: int = 0  # 缓存命中块数
+    total_chunks: int = 0  # 总块数
     created_at: Optional[datetime] = None  # 开始处理时间
     completed_at: Optional[datetime] = None  # 完成时间

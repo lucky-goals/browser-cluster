@@ -121,7 +121,9 @@ class TaskModel(BaseModel):
     result: Optional[ScrapedResult] = None  # 抓取结果
     error: Optional[TaskError] = None  # 错误信息
     cache_key: Optional[str] = None  # 缓存键
-    cached: bool = False  # 是否命中缓存
+    cached: bool = False  # 是否命中缓存 (总开关/全量)
+    html_cached: bool = False  # 是否命中网页抓取缓存
+    agent_cached: bool = False  # 是否命中 AI 识别缓存
     node_id: Optional[str] = None  # 处理节点 ID
     created_at: datetime = Field(default_factory=datetime.now)  # 创建时间
     updated_at: datetime = Field(default_factory=datetime.now)  # 更新时间
@@ -139,6 +141,8 @@ class TaskResponse(BaseModel):
     result: Optional[ScrapedResult] = None  # 抓取结果
     error: Optional[TaskError] = None  # 错误信息
     cached: bool = False  # 是否来自缓存
+    html_cached: bool = False  # 是否命中网页抓取缓存
+    agent_cached: bool = False  # 是否命中 AI 识别缓存
     created_at: datetime  # 创建时间
     updated_at: datetime  # 更新时间
     completed_at: Optional[datetime] = None  # 完成时间

@@ -4,7 +4,8 @@
         "cancel": "取消",
         "tip": "提示",
         "save": "保存",
-        "delete": "删除"
+        "delete": "删除",
+        "custom": "自定义"
     },
     "menu": {
         "home": "首页",
@@ -104,6 +105,9 @@
             "node": "节点:",
             "cacheHit": "命中",
             "cacheSkip": "跳过",
+            "htmlHit": "HTML",
+            "aiHit": "AI",
+            "partialHit": "AI 部分",
             "created": "创建:",
             "completed": "完成:",
             "totalDuration": "总执行耗时",
@@ -122,15 +126,128 @@
             "cache": "数据缓存",
             "cacheEnabled": "允许使用缓存数据",
             "cacheDisabled": "强制重新抓取",
-            "advanced": "高级选项",
-            "waitFor": "等待条件",
-            "emulation": "环境模拟",
-            "stealth": "反检测",
-            "screenshot": "自动截图",
-            "fullPage": "全屏截图",
-            "noImage": "无图模式",
             "cancel": "取消",
-            "submit": "立即开始"
+            "submit": "立即开始",
+            "cacheTTL": "缓存时间 (秒)",
+            "browser": {
+                "strategy": "加载策略",
+                "waitFor": "等待条件",
+                "timeout": "超时时间",
+                "waitTime": "等待时间",
+                "viewport": "窗口尺寸",
+                "emulation": "环境模拟",
+                "stealth": "反检测",
+                "screenshot": "自动截图",
+                "fullPage": "全屏截图",
+                "noImage": "无图模式"
+            },
+            "advanced": {
+                "proxy": "代理设置",
+                "optional": "可选",
+                "proxyPlaceholder": "http://user:pass@host:port",
+                "test": "测试连接",
+                "pool": "代理池",
+                "username": "用户名",
+                "password": "密码",
+                "interceptor": "请求拦截",
+                "pattern": "拦截规则",
+                "patternPlaceholder": "输入URL匹配规则...",
+                "patternTip": "支持通配符 *"
+            },
+            "agent": {
+                "title": "AI Agent 设置",
+                "enable": "启用 Agent",
+                "model": "模型",
+                "parallel": "并发设置",
+                "template": "提示词模板",
+                "templatePlaceholder": "选择模板",
+                "systemPrompt": "系统提示词",
+                "systemPromptPlaceholder": "输入系统提示词...",
+                "prompt": "提取提示词",
+                "promptPlaceholder": "输入提取提示词...",
+                "disabledDesc": "启用 Agent 以开启智能提取功能",
+                "enableBtn": "启用"
+            },
+            "skills": {
+                "title": "交互技能",
+                "applyBundle": "应用技能包",
+                "addStep": "添加步骤",
+                "params": {
+                    "container": "容器选择器",
+                    "distance": "距离",
+                    "maxScrolls": "最大次数",
+                    "delay": "延迟",
+                    "selector": "选择器",
+                    "next": "下一页",
+                    "prev": "上一页",
+                    "btnSelector": "按钮选择器",
+                    "addField": "添加字段",
+                    "fieldsCount": "{n} 个字段",
+                    "in": "放大",
+                    "out": "缩小",
+                    "blockSelector": "块选择器",
+                    "excludeSelectors": "排除选择器"
+                },
+                "desc": "添加交互步骤以处理复杂页面",
+                "firstStep": "添加第一步"
+            },
+            "tabs": {
+                "browser": "浏览器配置",
+                "advanced": "高级选项",
+                "agent": "AI Agent",
+                "skills": "交互技能"
+            }
+        },
+        "detail": {
+            "title": "任务详情",
+            "tabs": {
+                "info": "基本信息",
+                "intercept": "拦截记录",
+                "screenshot": "截图预览",
+                "html": "HTML 源码",
+                "agent": "Agent 结果"
+            },
+            "info": {
+                "id": "任务 ID",
+                "status": "状态",
+                "url": "目标 URL",
+                "created": "创建时间",
+                "completed": "完成时间",
+                "cache": "缓存状态",
+                "hit": "命中",
+                "miss": "未命中",
+                "node": "执行节点",
+                "proxy": "代理信息",
+                "server": "服务器",
+                "user": "用户"
+            },
+            "metadata": {
+                "title": "元数据",
+                "pageTitle": "页面标题",
+                "actualUrl": "实际 URL",
+                "loadTime": "加载耗时"
+            },
+            "error": "错误信息",
+            "intercept": {
+                "pattern": "规则: {pattern}",
+                "count": "{count} 次请求",
+                "fullUrl": "完整 URL",
+                "status": "状态码",
+                "content": "响应内容"
+            },
+            "agent": {
+                "status": "处理状态",
+                "model": "使用模型",
+                "duration": "耗时",
+                "parallel": "分块执行",
+                "chunks": "{n} 分块",
+                "batch": "批次 {n}",
+                "tokens": "Token 消耗"
+            }
+        },
+        "messages": {
+            "retryConfirm": "确定要重试此任务吗？",
+            "retrySuccess": "任务已重新提交"
         }
     },
     "nodes": {
@@ -572,10 +689,11 @@
         "addConfigTitle": "新增配置项",
         "editConfigTitle": "编辑配置项",
         "keyPlaceholder": "例如: browser.max_tabs",
-        "keyTip": "建议使用小写字母和点号分隔，如 browser.timeout",
+        "keyImmutable": "配置键不可修改",
         "createFailed": "创建配置失败",
         "valueRequired": "配置值不能为空",
         "updateSuccess": "配置已更新",
+        "submitUpdate": "确认修改",
         "updateFailed": "更新配置失败",
         "deleteConfirm": "确定要永久删除配置项 \"{key}\" 吗？此操作不可恢复。",
         "deleteConfirmTitle": "安全警告",
