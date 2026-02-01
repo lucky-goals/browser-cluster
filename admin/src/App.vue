@@ -29,52 +29,52 @@
         >
           <el-menu-item index="">
             <el-icon><House /></el-icon>
-            <template #title>首页</template>
+            <template #title>{{ $t('menu.home') }}</template>
           </el-menu-item>
           <el-menu-item index="tasks">
             <el-icon><List /></el-icon>
-            <template #title>任务管理</template>
+            <template #title>{{ $t('menu.tasks') }}</template>
           </el-menu-item>
           <el-menu-item index="stats">
             <el-icon><DataLine /></el-icon>
-            <template #title>数据统计</template>
+            <template #title>{{ $t('menu.stats') }}</template>
           </el-menu-item>
           <el-menu-item index="nodes" v-if="isAdmin">
             <el-icon><Monitor /></el-icon>
-            <template #title>节点管理</template>
+            <template #title>{{ $t('menu.nodes') }}</template>
           </el-menu-item>
           <el-menu-item index="users" v-if="isAdmin">
             <el-icon><User /></el-icon>
-            <template #title>用户管理</template>
+            <template #title>{{ $t('menu.users') }}</template>
           </el-menu-item>
           <el-menu-item index="proxies">
             <el-icon><Connection /></el-icon>
-            <template #title>代理管理</template>
+            <template #title>{{ $t('menu.proxies') }}</template>
           </el-menu-item>
           <el-menu-item index="configs" v-if="isAdmin">
             <el-icon><Setting /></el-icon>
-            <template #title>系统设置</template>
+            <template #title>{{ $t('menu.configs') }}</template>
           </el-menu-item>
           <el-sub-menu index="agent-settings">
             <template #title>
               <el-icon><MagicStick /></el-icon>
-              <span>Agent 设置</span>
+              <span>{{ $t('menu.agentSettings') }}</span>
             </template>
             <el-menu-item index="llm-models" v-if="isAdmin">
               <el-icon><Cpu /></el-icon>
-              <template #title>模型设置</template>
+              <template #title>{{ $t('menu.llmModels') }}</template>
             </el-menu-item>
             <el-menu-item index="prompt-templates">
               <el-icon><Document /></el-icon>
-              <template #title>提示词模板</template>
+              <template #title>{{ $t('menu.promptTemplates') }}</template>
             </el-menu-item>
             <el-menu-item index="skills">
               <el-icon><Pointer /></el-icon>
-              <template #title>技能管理</template>
+              <template #title>{{ $t('menu.skills') }}</template>
             </el-menu-item>
             <el-menu-item index="skill-bundles">
               <el-icon><Collection /></el-icon>
-              <template #title>技能包管理</template>
+              <template #title>{{ $t('menu.skillBundles') }}</template>
             </el-menu-item>
           </el-sub-menu>
         </el-menu>
@@ -89,7 +89,7 @@
               <Fold v-else />
             </el-icon>
             <el-breadcrumb separator="/">
-              <el-breadcrumb-item>首页</el-breadcrumb-item>
+              <el-breadcrumb-item>{{ $t('header.home') }}</el-breadcrumb-item>
               <el-breadcrumb-item>{{ currentRouteName }}</el-breadcrumb-item>
             </el-breadcrumb>
           </div>
@@ -133,7 +133,8 @@
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+                  <el-dropdown-item command="profile">{{ $t('header.profile') }}</el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>{{ $t('header.logout') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -162,7 +163,9 @@ import {
 } from '@element-plus/icons-vue'
 import { useStatsStore } from './stores/stats'
 import { useAuthStore } from './stores/auth'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const statsStore = useStatsStore()
@@ -182,19 +185,20 @@ const activeMenu = computed(() => {
 
 const currentRouteName = computed(() => {
   const path = route.path
-  if (path === '/') return '概览'
+  if (path === '/') return t('menu.home')
   const names = {
-    '/tasks': '任务管理',
-    '/stats': '数据统计',
-    '/nodes': '节点管理',
-    '/configs': '系统设置',
-    '/users': '用户管理',
-    '/llm-models': '模型设置',
-    '/proxies': '代理管理',
-    '/skills': '技能管理',
-    '/skill-bundles': '技能包管理'
+    '/tasks': t('menu.tasks'),
+    '/stats': t('menu.stats'),
+    '/nodes': t('menu.nodes'),
+    '/configs': t('menu.configs'),
+    '/users': t('menu.users'),
+    '/llm-models': t('menu.llmModels'),
+    '/proxies': t('menu.proxies'),
+    '/skills': t('menu.skills'),
+    '/skill-bundles': t('menu.skillBundles'),
+    '/profile': t('header.profile')
   }
-  return names[path] || '未知'
+  return names[path] || 'Unknown'
 })
 
 const handleMenuSelect = (index) => {
@@ -224,6 +228,8 @@ const handleCommand = (command) => {
   if (command === 'logout') {
     authStore.logout()
     router.push('/login')
+  } else if (command === 'profile') {
+    router.push('/profile')
   }
 }
 

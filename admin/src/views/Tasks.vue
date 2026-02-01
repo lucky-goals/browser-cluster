@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <div class="header-left">
-            <span class="title">任务管理</span>
+            <span class="title">{{ $t('tasks.title') }}</span>
             <span class="subtitle">实时监控和管理自动化抓取任务</span>
           </div>
           <div class="header-actions">
@@ -14,13 +14,13 @@
               :disabled="selectedTasks.length === 0"
               @click="confirmBatchDelete"
             >
-              <el-icon><DeleteFilled /></el-icon> 批量删除 ({{ selectedTasks.length }})
+              <el-icon><DeleteFilled /></el-icon> {{ $t('tasks.batchDelete') }} ({{ selectedTasks.length }})
             </el-button>
             <el-button type="primary" @click="showScrapeDialog = true">
-              <el-icon><Plus /></el-icon> 新建任务
+              <el-icon><Plus /></el-icon> {{ $t('tasks.createTask') }}
             </el-button>
             <el-button @click="loadTasks" :loading="loading">
-              <el-icon><Refresh /></el-icon> 刷新
+              <el-icon><Refresh /></el-icon> {{ $t('tasks.refresh') }}
             </el-button>
           </div>
         </div>
@@ -28,20 +28,20 @@
 
       <div class="filter-bar">
         <el-form :inline="true" :model="filterForm" class="filter-form">
-          <el-form-item label="任务状态">
+          <el-form-item :label="$t('tasks.columns.status')">
             <el-radio-group v-model="filterForm.status" @change="handleFilter" size="default">
-              <el-radio-button label="">全部</el-radio-button>
-              <el-radio-button label="pending">等待中</el-radio-button>
-              <el-radio-button label="processing">处理中</el-radio-button>
-              <el-radio-button label="success">成功</el-radio-button>
-              <el-radio-button label="failed">失败</el-radio-button>
+              <el-radio-button label="">{{ $t('tasks.status.all') }}</el-radio-button>
+              <el-radio-button label="pending">{{ $t('tasks.status.pending') }}</el-radio-button>
+              <el-radio-button label="processing">{{ $t('tasks.status.running') }}</el-radio-button>
+              <el-radio-button label="success">{{ $t('tasks.status.success') }}</el-radio-button>
+              <el-radio-button label="failed">{{ $t('tasks.status.failed') }}</el-radio-button>
             </el-radio-group>
           </el-form-item>
           
           <el-form-item label="关键词搜索">
             <el-input 
               v-model="filterForm.url" 
-              placeholder="搜索 URL 或 任务 ID..." 
+              :placeholder="$t('tasks.searchPlaceholder')" 
               clearable 
               style="width: 280px"
               @keyup.enter="handleFilter"
@@ -69,7 +69,7 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="40" align="center" />
-        <el-table-column prop="task_id" label="任务 ID" width="250">
+        <el-table-column prop="task_id" :label="$t('tasks.columns.id')" width="250">
           <template #default="{ row }">
             <div class="task-id-row">
               <el-tag size="small"  effect="plain" class="id-tag-simple">
@@ -80,7 +80,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="url" label="目标 URL" min-width="250">
+        <el-table-column prop="url" :label="$t('tasks.columns.target')" min-width="250">
           <template #default="{ row }">
             <div class="task-url-row">
               <el-tooltip :content="row.url" placement="top" :show-after="500">
@@ -102,7 +102,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="status" label="状态" width="140" align="center">
+        <el-table-column prop="status" :label="$t('tasks.columns.status')" width="140" align="center">
           <template #default="{ row }">
             <div class="status-container">
               <el-tag :type="getStatusType(row.status)" size="default" effect="dark" class="status-tag">
@@ -171,7 +171,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="160" fixed="right" align="center">
+        <el-table-column :label="$t('tasks.columns.actions')" width="160" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-tooltip content="查看详情" placement="top">
@@ -1009,9 +1009,32 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Picture, WarningFilled, DeleteFilled, Setting, Connection, Monitor, Timer, Search, CopyDocument, View, VideoPlay, Link, Lock, Promotion, QuestionFilled, Cpu, Right, MagicStick, InfoFilled, Download, DocumentCopy, Grid, EditPen, Collection } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { 
+  Plus, 
+  Refresh, 
+  Search, 
+  DeleteFilled, 
+  View, 
+  VideoPlay, 
+  CopyDocument, 
+  Link, 
+  Right, 
+  Timer, 
+  Loading, 
+  Cpu, 
+  Monitor, 
+  InfoFilled, 
+  Pointer, 
+  Promotion,
+  Picture, WarningFilled, Setting, Connection, MagicStick, Download, DocumentCopy, Grid, EditPen, Collection
+} from '@element-plus/icons-vue'
 import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, retryTask, deleteTasksBatch, getLLMModels, getPromptTemplates, createPromptTemplate, testProxy, getProxies, getSkillBundles, getSkills as getCustomSkills, getBuiltInSkills } from '../api'
 import dayjs from 'dayjs'
+
+const { t } = useI18n()
+const router = useRouter()
 
 const loading = ref(false)
 const tasks = ref([])
@@ -1042,7 +1065,8 @@ const handleTestProxy = async () => {
     } else {
       ElMessageBox.alert(result.message, '代理测试失败', {
         confirmButtonText: '确定',
-        type: 'error'
+        type: 'error',
+        dangerouslyUseHTMLString: true
       })
     }
   } catch (error) {
@@ -1424,13 +1448,13 @@ const getStatusType = (status) => {
 }
 
 const getStatusText = (status) => {
-  const map = {
-    'pending': '等待中',
-    'processing': '抓取中',
-    'success': '已成功',
-    'failed': '已失败'
+  const texts = {
+    'pending': t('tasks.status.pending'),
+    'processing': t('tasks.status.running'),
+    'success': t('tasks.status.success'),
+    'failed': t('tasks.status.failed')
   }
-  return map[status] || status
+  return texts[status] || status
 }
 
 const formatDate = (date) => {

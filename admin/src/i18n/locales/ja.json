@@ -1,0 +1,80 @@
+{
+    "menu": {
+        "home": "ホーム",
+        "tasks": "タスク管理",
+        "stats": "データ統計",
+        "nodes": "ノード管理",
+        "users": "ユーザー管理",
+        "proxies": "プロキシ管理",
+        "configs": "システム設定",
+        "agentSettings": "エージェント設定",
+        "llmModels": "モデル設定",
+        "promptTemplates": "プロンプトテンプレート",
+        "skills": "スキル管理",
+        "skillBundles": "スキルバンドル管理"
+    },
+    "header": {
+        "home": "ホーム",
+        "logout": "ログアウト",
+        "profile": "個人設定"
+    },
+    "stats": {
+        "today": "今日の統計",
+        "success": "成功",
+        "failed": "失敗"
+    },
+    "profile": {
+        "title": "プロファイル設定",
+        "username": "ユーザー名",
+        "role": "役割",
+        "language": "言語",
+        "save": "変更を保存",
+        "saveSuccess": "プロファイルが更新されました"
+    },
+    "home": {
+        "subtitle": "高性能、分散型の Playwright ブラウザ自動化クラスタ",
+        "getStarted": "今すぐ開始",
+        "viewDocs": "ドキュメントを表示",
+        "featuresTitle": "主な機能",
+        "featuresSubtitle": "現代の Web スクレイピングと自動化のために開発",
+        "archTitle": "システムアーキテクチャ",
+        "archSubtitle": "安定、信頼、拡張可能な分散型アーキテクチャ",
+        "features": {
+            "cluster": "分散クラスタ",
+            "clusterDesc": "マルチノードの水平スケーリングをサポートし、高負荷に対応します。",
+            "stealth": "ステルスレンダリング",
+            "stealthDesc": "Stealth プラグインを内蔵し、ボット検知を効果的に回避します。",
+            "cache": "効率的なキャッシュ",
+            "cacheDesc": "Redis ベースのキャッシュにより、重複した取得コストを大幅に削減します。",
+            "interceptor": "API インターセプション",
+            "interceptorDesc": "レンダリング中に特定の API データをインターセプトして抽出します。",
+            "monitor": "多次元モニタリング",
+            "monitorDesc": "成功率、ロード時間、ノードの状態をリアルタイムで統計します。",
+            "optimize": "リソース最適化",
+            "optimizeDesc": "画像やメディアをオンデマンドでブロックし、レンダリングを高速化します。"
+        }
+    },
+    "tasks": {
+        "title": "タスク管理",
+        "createTask": "新規タスク",
+        "refresh": "更新",
+        "batchDelete": "一括削除",
+        "searchPlaceholder": "タスク ID または URL で検索",
+        "status": {
+            "all": "すべてのステータス",
+            "pending": "待機中",
+            "running": "実行中",
+            "success": "成功",
+            "failed": "失敗"
+        },
+        "columns": {
+            "id": "タスク ID",
+            "target": "ターゲット URL",
+            "status": "ステータス",
+            "duration": "所要時間",
+            "nodes": "実行先ノード",
+            "createdAt": "作成日時",
+            "actions": "操作"
+        }
+    }
+}

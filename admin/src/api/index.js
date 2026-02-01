@@ -48,6 +48,11 @@ export const getMe = async () => {
   return response.data
 }
 
+export const updateMe = async (data) => {
+  const response = await api.put('/auth/me', data)
+  return response.data
+}
+
 export const getUsers = async () => {
   const response = await api.get('/users/')
   return response.data

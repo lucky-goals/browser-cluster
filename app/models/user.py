@@ -5,6 +5,7 @@ from datetime import datetime
 class UserBase(BaseModel):
     username: str
     role: str = "admin"  # 默认为 admin
+    language: Optional[str] = "zh-CN"
 
 class UserCreate(UserBase):
     password: str
@@ -13,6 +14,7 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     role: Optional[str] = None
+    language: Optional[str] = None
 
 class UserInDB(UserBase):
     id: int

@@ -1,0 +1,80 @@
+{
+    "menu": {
+        "home": "Home",
+        "tasks": "Tasks",
+        "stats": "Statistics",
+        "nodes": "Nodes",
+        "users": "Users",
+        "proxies": "Proxies",
+        "configs": "System Settings",
+        "agentSettings": "Agent Settings",
+        "llmModels": "LLM Models",
+        "promptTemplates": "Prompt Templates",
+        "skills": "Skills",
+        "skillBundles": "Skill Bundles"
+    },
+    "header": {
+        "home": "Home",
+        "logout": "Logout",
+        "profile": "Profile"
+    },
+    "stats": {
+        "today": "Today's Stats",
+        "success": "Success",
+        "failed": "Failed"
+    },
+    "profile": {
+        "title": "Profile Settings",
+        "username": "Username",
+        "role": "Role",
+        "language": "Language",
+        "save": "Save Changes",
+        "saveSuccess": "Profile updated successfully"
+    },
+    "home": {
+        "subtitle": "High-performance, distributed Playwright browser automation cluster",
+        "getStarted": "Get Started",
+        "viewDocs": "View Docs",
+        "featuresTitle": "Key Features",
+        "featuresSubtitle": "Built for modern web scraping & automation",
+        "archTitle": "System Architecture",
+        "archSubtitle": "Stable, reliable, and scalable distributed architecture",
+        "features": {
+            "cluster": "Distributed Cluster",
+            "clusterDesc": "Supports multi-node horizontal scaling to handle high concurrency.",
+            "stealth": "Stealth Rendering",
+            "stealthDesc": "Built-in Stealth plugin to effectively bypass anti-bot detections.",
+            "cache": "Efficient Caching",
+            "cacheDesc": "Redis-based caching mechanism to significantly reduce redundant scrapes.",
+            "interceptor": "API Interception",
+            "interceptorDesc": "Intercept and extract specific API data during page rendering.",
+            "monitor": "Multi-dim Monitoring",
+            "monitorDesc": "Real-time stats for success rates, load times, and node status.",
+            "optimize": "Resource Optimization",
+            "optimizeDesc": "Block images and media on demand to boost rendering speed."
+        }
+    },
+    "tasks": {
+        "title": "Task Management",
+        "createTask": "New Task",
+        "refresh": "Refresh",
+        "batchDelete": "Batch Delete",
+        "searchPlaceholder": "Search by Task ID or URL",
+        "status": {
+            "all": "All Status",
+            "pending": "Pending",
+            "running": "Running",
+            "success": "Success",
+            "failed": "Failed"
+        },
+        "columns": {
+            "id": "Task ID",
+            "target": "Target URL",
+            "status": "Status",
+            "duration": "Duration",
+            "nodes": "Exec Node",
+            "createdAt": "Created At",
+            "actions": "Actions"
+        }
+    }
+}

@@ -28,7 +28,8 @@ def init_admin():
         sqlite_db.create_user(
             username=username,
             password_hash=password_hash,
-            role="admin"
+            role="admin",
+            language="zh-CN"
         )
         logger.info(f"成功创建默认管理员账号: {username} / {password}")
     else:

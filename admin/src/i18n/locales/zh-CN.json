@@ -1,0 +1,80 @@
+{
+    "menu": {
+        "home": "首页",
+        "tasks": "任务管理",
+        "stats": "数据统计",
+        "nodes": "节点管理",
+        "users": "用户管理",
+        "proxies": "代理管理",
+        "configs": "系统设置",
+        "agentSettings": "Agent 设置",
+        "llmModels": "模型设置",
+        "promptTemplates": "提示词模板",
+        "skills": "技能管理",
+        "skillBundles": "技能包管理"
+    },
+    "header": {
+        "home": "首页",
+        "logout": "退出登录",
+        "profile": "个人设置"
+    },
+    "stats": {
+        "today": "今日任务统计",
+        "success": "成功",
+        "failed": "失败"
+    },
+    "profile": {
+        "title": "个人设置",
+        "username": "用户名",
+        "role": "角色",
+        "language": "语言",
+        "save": "保存",
+        "saveSuccess": "保存成功"
+    },
+    "home": {
+        "subtitle": "高性能、分布式的 Playwright 浏览器自动化集群",
+        "getStarted": "立即开始",
+        "viewDocs": "查看文档",
+        "featuresTitle": "核心特性",
+        "featuresSubtitle": "为现代 Web 采集与自动化而生",
+        "archTitle": "系统架构",
+        "archSubtitle": "稳定、可靠、可扩展的分布式架构",
+        "features": {
+            "cluster": "分布式集群",
+            "clusterDesc": "支持多节点水平扩展，轻松应对高并发抓取需求。",
+            "stealth": "隐身渲染",
+            "stealthDesc": "内置 Stealth 插件，有效绕过反爬虫检测与人机验证。",
+            "cache": "高效缓存",
+            "cacheDesc": "基于 Redis 的结果缓存机制，大幅降低重复抓取成本。",
+            "interceptor": "API 拦截",
+            "interceptorDesc": "支持在页面渲染过程中拦截并提取特定接口的数据。",
+            "monitor": "多维监控",
+            "monitorDesc": "实时统计成功率、加载时长、节点状态等核心指标。",
+            "optimize": "资源优化",
+            "optimizeDesc": "按需拦截图片、媒体资源，显著提升渲染速度。"
+        }
+    },
+    "tasks": {
+        "title": "任务管理",
+        "createTask": "新建任务",
+        "refresh": "刷新",
+        "batchDelete": "批量删除",
+        "searchPlaceholder": "输入任务 ID 或 URL 搜索",
+        "status": {
+            "all": "全部状态",
+            "pending": "等待中",
+            "running": "运行中",
+            "success": "成功",
+            "failed": "失败"
+        },
+        "columns": {
+            "id": "任务 ID",
+            "target": "目标 URL",
+            "status": "状态",
+            "duration": "时长",
+            "nodes": "执行节点",
+            "createdAt": "创建时间",
+            "actions": "操作"
+        }
+    }
+}

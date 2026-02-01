@@ -1,0 +1,80 @@
+{
+    "menu": {
+        "home": "首頁",
+        "tasks": "任務管理",
+        "stats": "數據統計",
+        "nodes": "節點管理",
+        "users": "用戶管理",
+        "proxies": "代理管理",
+        "configs": "系統設置",
+        "agentSettings": "Agent 設置",
+        "llmModels": "模型設置",
+        "promptTemplates": "提示詞模板",
+        "skills": "技能管理",
+        "skillBundles": "技能包管理"
+    },
+    "header": {
+        "home": "首頁",
+        "logout": "退出登錄",
+        "profile": "個人設置"
+    },
+    "stats": {
+        "today": "今日任務統計",
+        "success": "成功",
+        "failed": "失敗"
+    },
+    "profile": {
+        "title": "個人設置",
+        "username": "用戶名",
+        "role": "角色",
+        "language": "語言",
+        "save": "保存",
+        "saveSuccess": "保存成功"
+    },
+    "home": {
+        "subtitle": "高性能、分散式的 Playwright 瀏覽器自動化集群",
+        "getStarted": "立即開始",
+        "viewDocs": "查看文檔",
+        "featuresTitle": "核心特性",
+        "featuresSubtitle": "為現代 Web 採集與自動化而生",
+        "archTitle": "系統架構",
+        "archSubtitle": "穩定、可靠、可擴展的分散式架構",
+        "features": {
+            "cluster": "分散式集群",
+            "clusterDesc": "支持多節點水平擴展，輕鬆應對高併發抓取需求。",
+            "stealth": "隱身渲染",
+            "stealthDesc": "內置 Stealth 插件，有效繞過反爬蟲檢測與人機驗證。",
+            "cache": "高效緩存",
+            "cacheDesc": "基於 Redis 的結果緩存機制，大幅降低重複抓取成本。",
+            "interceptor": "API 攔截",
+            "interceptorDesc": "支持在頁面渲染過程中攔截並提取特定接口的數據。",
+            "monitor": "多維監控",
+            "monitorDesc": "實時統計成功率、加載時長、節點狀態等核心指標。",
+            "optimize": "資源優化",
+            "optimizeDesc": "按需攔截圖片、媒體資源，顯著提升渲染速度。"
+        }
+    },
+    "tasks": {
+        "title": "任務管理",
+        "createTask": "新建任務",
+        "refresh": "刷新",
+        "batchDelete": "批量刪除",
+        "searchPlaceholder": "輸入任務 ID 或 URL 搜索",
+        "status": {
+            "all": "全部狀態",
+            "pending": "等待中",
+            "running": "運行中",
+            "success": "成功",
+            "failed": "失敗"
+        },
+        "columns": {
+            "id": "任務 ID",
+            "target": "目標 URL",
+            "status": "狀態",
+            "duration": "時長",
+            "nodes": "執行節點",
+            "createdAt": "創建時間",
+            "actions": "操作"
+        }
+    }
+}

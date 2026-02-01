@@ -56,6 +56,7 @@ class SQLiteDB:
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             role TEXT DEFAULT 'admin',
+            language TEXT DEFAULT 'zh-CN',
             created_at TIMESTAMP,
             updated_at TIMESTAMP
         )
@@ -77,6 +78,7 @@ class SQLiteDB:
                 "id": row['id'],
                 "username": row['username'],
                 "role": row['role'],
+                "language": row.get('language', 'zh-CN'),
                 "created_at": row['created_at'],
                 "updated_at": row['updated_at']
             })
@@ -107,21 +109,21 @@ class SQLiteDB:
             return dict(row)
         return None
 
-    def create_user(self, username: str, password_hash: str, role: str = 'admin') -> int:
+    def create_user(self, username: str, password_hash: str, role: str = 'admin', language: str = 'zh-CN') -> int:
         """创建用户"""
         conn = self._get_conn()
         cursor = conn.cursor()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute(
-            'INSERT INTO users (username, password, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-            (username, password_hash, role, now, now)
+            'INSERT INTO users (username, password, role, language, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+            (username, password_hash, role, language, now, now)
         )
         user_id = cursor.lastrowid
         conn.commit()
         conn.close()
         return user_id
 
-    def update_user(self, user_id: int, username: str = None, password_hash: str = None, role: str = None) -> bool:
+    def update_user(self, user_id: int, username: str = None, password_hash: str = None, role: str = None, language: str = None) -> bool:
         """更新用户"""
         conn = self._get_conn()
         cursor = conn.cursor()
@@ -137,6 +139,9 @@ class SQLiteDB:
         if role:
             updates.append("role = ?")
             params.append(role)
+        if language:
+            updates.append("language = ?")
+            params.append(language)
             
         if not updates:
             return False

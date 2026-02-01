@@ -4,14 +4,14 @@
     <div class="hero-section">
       <div class="hero-content">
         <h1 class="animate-up">Browser Cluster</h1>
-        <p class="subtitle animate-up-delay-1">高性能、分布式的 Playwright 浏览器自动化集群</p>
+        <p class="subtitle animate-up-delay-1">{{ $t('home.subtitle') }}</p>
         <div class="hero-actions animate-up-delay-2">
           <el-button type="primary" size="large" @click="$router.push('/tasks')">
-            立即开始
+            {{ $t('home.getStarted') }}
             <el-icon class="el-icon--right"><ArrowRight /></el-icon>
           </el-button>
           <el-button size="large" @click="openDocs">
-            查看文档
+            {{ $t('home.viewDocs') }}
           </el-button>
         </div>
       </div>
@@ -37,8 +37,8 @@
 
     <!-- Features Grid -->
     <div class="section-title">
-      <h2>核心特性</h2>
-      <p>为现代 Web 采集与自动化而生</p>
+      <h2>{{ $t('home.featuresTitle') }}</h2>
+      <p>{{ $t('home.featuresSubtitle') }}</p>
     </div>
 
     <div class="features-grid">
@@ -56,8 +56,8 @@
     <!-- Architecture Section -->
     <div class="architecture-section">
       <div class="section-title">
-        <h2>系统架构</h2>
-        <p>稳定、可靠、可扩展的分布式架构</p>
+        <h2>{{ $t('home.archTitle') }}</h2>
+        <p>{{ $t('home.archSubtitle') }}</p>
       </div>
       <div class="arch-container">
         <div class="arch-step">
@@ -115,46 +115,49 @@ import {
   Timer, 
   DataAnalysis 
 } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const features = [
   {
-    title: '分布式集群',
-    desc: '支持多节点水平扩展，轻松应对高并发抓取需求。',
+    title: t('home.features.cluster'),
+    desc: t('home.features.clusterDesc'),
     icon: Connection,
     color: '#409EFF',
     bg: '#ecf5ff'
   },
   {
-    title: '隐身渲染',
-    desc: '内置 Stealth 插件，有效绕过反爬虫检测与人机验证。',
+    title: t('home.features.stealth'),
+    desc: t('home.features.stealthDesc'),
     icon: MagicStick,
     color: '#67C23A',
     bg: '#f0f9eb'
   },
   {
-    title: '高效缓存',
-    desc: '基于 Redis 的结果缓存机制，大幅降低重复抓取成本。',
+    title: t('home.features.cache'),
+    desc: t('home.features.cacheDesc'),
     icon: Timer,
     color: '#E6A23C',
     bg: '#fdf6ec'
   },
   {
-    title: 'API 拦截',
-    desc: '支持在页面渲染过程中拦截并提取特定接口的数据。',
+    title: t('home.features.interceptor'),
+    desc: t('home.features.interceptorDesc'),
     icon: Lock,
     color: '#F56C6C',
     bg: '#fef0f0'
   },
   {
-    title: '多维监控',
-    desc: '实时统计成功率、加载时长、节点状态等核心指标。',
+    title: t('home.features.monitor'),
+    desc: t('home.features.monitorDesc'),
     icon: DataAnalysis,
     color: '#909399',
     bg: '#f4f4f5'
   },
   {
-    title: '资源优化',
-    desc: '按需拦截图片、媒体资源，显著提升渲染速度。',
+    title: t('home.features.optimize'),
+    desc: t('home.features.optimizeDesc'),
     icon: Monitor,
     color: '#7232dd',
     bg: '#f2ecff'

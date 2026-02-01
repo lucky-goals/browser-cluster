@@ -32,7 +32,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         "user": {
             "id": user["id"],
             "username": user["username"],
-            "role": user["role"]
+            "role": user["role"],
+            "language": user.get("language", "zh-CN")
         }
     }
 
@@ -42,5 +43,29 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
     return {
         "id": current_user["id"],
         "username": current_user["username"],
-        "role": current_user["role"]
+        "role": current_user["role"],
+        "language": current_user.get("language", "zh-CN")
+    }
+
+@router.put("/me")
+async def update_users_me(
+    user_in: dict, 
+    current_user: dict = Depends(get_current_user)
+):
+    """更新当前用户信息 (主要用于更新语言)"""
+    language = user_in.get("language")
+    if not language:
+        raise HTTPException(status_code=400, detail="Language is required")
+    
+    sqlite_db.update_user(
+        user_id=current_user["id"],
+        language=language
+    )
+    
+    updated_user = sqlite_db.get_user_by_id(current_user["id"])
+    return {
+        "id": updated_user["id"],
+        "username": updated_user["username"],
+        "role": updated_user["role"],
+        "language": updated_user.get("language", "zh-CN")
     }

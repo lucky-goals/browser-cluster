@@ -26,7 +26,8 @@ async def create_user(user_in: UserCreate, current_admin: dict = Depends(get_cur
     user_id = sqlite_db.create_user(
         username=user_in.username,
         password_hash=password_hash,
-        role=user_in.role
+        role=user_in.role,
+        language=user_in.language
     )
     
     new_user = sqlite_db.get_user_by_id(user_id)
@@ -50,7 +51,8 @@ async def update_user(user_id: int, user_in: UserUpdate, current_admin: dict = D
         user_id=user_id,
         username=user_in.username,
         password_hash=password_hash,
-        role=user_in.role
+        role=user_in.role,
+        language=user_in.language
     )
     
     updated_user = sqlite_db.get_user_by_id(user_id)
