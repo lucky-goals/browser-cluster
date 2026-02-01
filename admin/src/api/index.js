@@ -108,9 +108,13 @@ export const deleteTasksBatch = async (taskIds) => {
   return response.data
 }
 
-export const retryTask = async (taskId, agentModelId) => {
+export const retryTask = async (taskId, agentModelId, agentParallelEnabled = null, agentParallelBatchSize = null) => {
   const response = await api.post(`/tasks/${taskId}/retry`, null, {
-    params: { agent_model_id: agentModelId }
+    params: {
+      agent_model_id: agentModelId,
+      agent_parallel_enabled: agentParallelEnabled,
+      agent_parallel_batch_size: agentParallelBatchSize
+    }
   })
   return response.data
 }
@@ -265,5 +269,62 @@ export const deleteProxy = async (proxyId) => {
 
 export const testStoredProxy = async (proxyId) => {
   const response = await api.post(`/proxies/${proxyId}/test`)
+  return response.data
+}
+
+// Skills API
+export const getSkills = async (params) => {
+  const response = await api.get('/skills/', { params })
+  return response.data
+}
+
+export const getBuiltInSkills = async () => {
+  const response = await api.get('/skills/built-in')
+  return response.data
+}
+
+export const getSkill = async (skillId) => {
+  const response = await api.get(`/skills/${skillId}`)
+  return response.data
+}
+
+export const createSkill = async (data) => {
+  const response = await api.post('/skills/', data)
+  return response.data
+}
+
+export const updateSkill = async (skillId, data) => {
+  const response = await api.put(`/skills/${skillId}`, data)
+  return response.data
+}
+
+export const deleteSkill = async (skillId) => {
+  const response = await api.delete(`/skills/${skillId}`)
+  return response.data
+}
+
+// Skill Bundles API
+export const getSkillBundles = async (params) => {
+  const response = await api.get('/skill-bundles/', { params })
+  return response.data
+}
+
+export const getSkillBundle = async (bundleId) => {
+  const response = await api.get(`/skill-bundles/${bundleId}`)
+  return response.data
+}
+
+export const createSkillBundle = async (data) => {
+  const response = await api.post('/skill-bundles/', data)
+  return response.data
+}
+
+export const updateSkillBundle = async (bundleId, data) => {
+  const response = await api.put(`/skill-bundles/${bundleId}`, data)
+  return response.data
+}
+
+export const deleteSkillBundle = async (bundleId) => {
+  const response = await api.delete(`/skill-bundles/${bundleId}`)
   return response.data
 }

@@ -35,6 +35,8 @@ class LLMAgent:
         self.model_name = model_config.get("model_name", "")
         self.temperature = model_config.get("temperature", 0.7)
         self.max_tokens = model_config.get("max_tokens", 4096)
+        self.supports_stream = model_config.get("supports_stream", False)
+        self.max_retries = model_config.get("max_retries", 3)
 
     async def test_connection(self, prompt: str = "Hello") -> str:
         """
@@ -78,43 +80,54 @@ class LLMAgent:
             created_at=datetime.now(),
         )
 
-        try:
-            # 构建系统提示
-            system_prompt = self._build_extraction_system_prompt(system_prompt, skills)
-            result.system_prompt = system_prompt
+        max_retries = self.max_retries
+        retry_delay = 2  # 初始重试延迟（秒）
+        
+        for attempt in range(max_retries):
+            try:
+                # 构建系统提示
+                system_prompt = self._build_extraction_system_prompt(system_prompt, skills)
+                result.system_prompt = system_prompt
 
-            # 构建用户消息
-            user_message = self._build_extraction_user_message(
-                content, user_prompt, screenshot_base64
-            )
+                # 构建用户消息
+                user_message = self._build_extraction_user_message(
+                    content, user_prompt, screenshot_base64
+                )
 
-            # 调用 LLM
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ]
+                # 调用 LLM
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ]
 
-            response = await self._call_llm(messages)
+                response = await self._call_llm(messages)
 
-            # 解析响应
-            content = response.get("content", "")
-            result.raw_response = content
-            result.token_usage = response.get("usage")
+                # 解析响应
+                llm_content = response.get("content", "")
+                result.raw_response = llm_content
+                result.token_usage = response.get("usage")
 
-            # 尝试解析 JSON 结果
-            extracted = self._parse_extraction_result(content)
-            result.extracted_items = extracted
+                # 尝试解析 JSON 结果
+                extracted = self._parse_extraction_result(llm_content)
+                result.extracted_items = extracted
 
-            result.status = AgentStatus.SUCCESS
-            result.processing_time = time.time() - start_time
-            result.completed_at = datetime.now()
+                result.status = AgentStatus.SUCCESS
+                result.processing_time = time.time() - start_time
+                result.completed_at = datetime.now()
+                # 成功则跳出重试循环
+                break
 
-        except Exception as e:
-            logger.error(f"Agent extraction failed: {e}", exc_info=True)
-            result.status = AgentStatus.FAILED
-            result.error = str(e)
-            result.processing_time = time.time() - start_time
-            result.completed_at = datetime.now()
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Agent extraction attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # 指数退避
+                else:
+                    logger.error(f"Agent extraction failed after {max_retries} attempts: {e}", exc_info=True)
+                    result.status = AgentStatus.FAILED
+                    result.error = str(e)
+                    result.processing_time = time.time() - start_time
+                    result.completed_at = datetime.now()
 
         return result
 
@@ -262,16 +275,50 @@ class LLMAgent:
             "messages": messages,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            "stream": self.supports_stream
         }
 
+        full_content = ""
+        usage = None
+
         async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
+            if self.supports_stream:
+                logger.info(f"Using streaming for OpenAI compatible model: {self.model_name}")
+                async with client.stream("POST", url, json=payload, headers=headers) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line or not line.startswith("data: "):
+                            continue
+                        
+                        data_str = line[6:]
+                        if data_str == "[DONE]":
+                            break
+                        
+                        try:
+                            chunk = json.loads(data_str)
+                            if "choices" in chunk and len(chunk["choices"]) > 0:
+                                delta = chunk["choices"][0].get("delta", {})
+                                content_chunk = delta.get("content")
+                                if content_chunk:
+                                    full_content += content_chunk
+                                    # 实时展示
+                                    print(content_chunk, end="", flush=True)
+                            
+                            if "usage" in chunk and chunk["usage"]:
+                                usage = chunk["usage"]
+                        except Exception as e:
+                            logger.warning(f"Failed to parse OpenAI stream chunk: {e}")
+                print() # newline
+            else:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                full_content = data["choices"][0]["message"]["content"]
+                usage = data.get("usage")
 
         return {
-            "content": data["choices"][0]["message"]["content"],
-            "usage": data.get("usage"),
+            "content": full_content,
+            "usage": usage,
         }
 
     async def _call_anthropic(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
@@ -298,16 +345,54 @@ class LLMAgent:
             "messages": anthropic_messages,
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
+            "stream": self.supports_stream
         }
         if system_content:
             payload["system"] = system_content
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
+        full_content = ""
+        usage = {"prompt_tokens": 0, "completion_tokens": 0}
 
-        return {"content": data["content"][0]["text"], "usage": data.get("usage")}
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            if self.supports_stream:
+                logger.info(f"Using streaming for Anthropic model: {self.model_name}")
+                async with client.stream("POST", url, json=payload, headers=headers) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line or not line.startswith("data: "):
+                            continue
+                        
+                        data_str = line[6:]
+                        try:
+                            chunk = json.loads(data_str)
+                            event_type = chunk.get("type")
+                            
+                            if event_type == "content_block_delta":
+                                delta = chunk.get("delta", {})
+                                if delta.get("type") == "text_delta":
+                                    text = delta.get("text", "")
+                                    full_content += text
+                                    print(text, end="", flush=True)
+                            elif event_type == "message_start":
+                                msg = chunk.get("message", {})
+                                usage["prompt_tokens"] = msg.get("usage", {}).get("input_tokens", 0)
+                            elif event_type == "message_delta":
+                                usage["completion_tokens"] = chunk.get("usage", {}).get("output_tokens", 0)
+                        except Exception as e:
+                            logger.warning(f"Failed to parse Anthropic stream chunk: {e}")
+                print()
+            else:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                full_content = data["content"][0]["text"]
+                usage = {
+                    "prompt_tokens": data.get("usage", {}).get("input_tokens", 0),
+                    "completion_tokens": data.get("usage", {}).get("output_tokens", 0),
+                    "total_tokens": data.get("usage", {}).get("input_tokens", 0) + data.get("usage", {}).get("output_tokens", 0)
+                }
+
+        return {"content": full_content, "usage": usage}
 
     async def _call_google(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """调用 Google Gemini API (使用 google-genai SDK)"""
@@ -344,53 +429,99 @@ class LLMAgent:
         # 这里使用 aio 接口（Client.aio）
         async_client = genai.Client(**client_options, vertexai=False).aio
         
-        response = await async_client.models.generate_content(
-            model=self.model_name,
-            contents=contents,
-            config=config
-        )
-        
-        return {
-            "content": response.text,
-            "usage": {
+        full_content = ""
+        usage = None
+
+        if self.supports_stream:
+            logger.info(f"Using streaming for Google Gemini model: {self.model_name}")
+            async for chunk in await async_client.models.generate_content_stream(
+                model=self.model_name,
+                contents=contents,
+                config=config
+            ):
+                if chunk.text:
+                    full_content += chunk.text
+                    print(chunk.text, end="", flush=True)
+                
+                if chunk.usage_metadata:
+                    usage = {
+                        "prompt_tokens": getattr(chunk.usage_metadata, 'prompt_token_count', 0),
+                        "completion_tokens": getattr(chunk.usage_metadata, 'candidates_token_count', 0),
+                        "total_tokens": getattr(chunk.usage_metadata, 'total_token_count', 0)
+                    }
+            print()
+        else:
+            response = await async_client.models.generate_content(
+                model=self.model_name,
+                contents=contents,
+                config=config
+            )
+            full_content = response.text
+            usage = {
                 "prompt_tokens": getattr(response.usage_metadata, 'prompt_token_count', 0) if response.usage_metadata else 0,
                 "completion_tokens": getattr(response.usage_metadata, 'candidates_token_count', 0) if response.usage_metadata else 0,
                 "total_tokens": getattr(response.usage_metadata, 'total_token_count', 0) if response.usage_metadata else 0
             }
+        
+        return {
+            "content": full_content,
+            "usage": usage
         }
 
     async def _call_ollama(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """调用 Ollama API"""
         url = f"{self.base_url}/api/chat"
-
         headers = {"Content-Type": "application/json"}
-
         payload = {
             "model": self.model_name,
             "messages": messages,
-            "stream": False,
+            "stream": self.supports_stream,
             "options": {
                 "temperature": self.temperature,
                 "num_predict": self.max_tokens,
             },
         }
-
+        full_content = ""
+        prompt_tokens = 0
+        completion_tokens = 0
+        import httpx
         async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-
+            if self.supports_stream:
+                import logging
+                logger = logging.getLogger("app.services.llm_agent")
+                logger.info(f"Using streaming for Ollama model: {self.model_name}")
+                async with client.stream("POST", url, json=payload, headers=headers) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                        try:
+                            chunk = json.loads(line)
+                            if "message" in chunk:
+                                content_chunk = chunk["message"].get("content", "")
+                                full_content += content_chunk
+                                print(content_chunk, end="", flush=True)
+                            if chunk.get("done"):
+                                prompt_tokens = chunk.get("prompt_eval_count", 0)
+                                completion_tokens = chunk.get("eval_count", 0)
+                        except Exception as e:
+                            logger.warning(f"Failed to parse Ollama stream chunk: {e}")
+                print()
+            else:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                full_content = data["message"]["content"]
+                prompt_tokens = data.get("prompt_eval_count", 0)
+                completion_tokens = data.get("eval_count", 0)
         return {
-            "content": data["message"]["content"],
+            "content": full_content,
             "usage": {
-                "prompt_tokens": data.get("prompt_eval_count", 0),
-                "completion_tokens": data.get("eval_count", 0),
-                "total_tokens": data.get("prompt_eval_count", 0)
-                + data.get("eval_count", 0),
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
             },
         }
-
-
 async def get_llm_agent(model_id: str) -> Optional[LLMAgent]:
     """
     根据模型 ID 获取 LLM Agent 实例

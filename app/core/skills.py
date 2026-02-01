@@ -7,8 +7,9 @@
 
 import asyncio
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from playwright.async_api import Page, ElementHandle
+from app.services.skill_service import skill_service
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class BrowserSkills:
     """浏览器操作技能类"""
 
     @staticmethod
-    async def scroll_container(page: Page, selector: str, distance: int = 500, delay: int = 1000):
+    async def scroll_container(page: Page, selector: str = "window", distance: int = 500, delay: int = 1000):
         """
         滚动指定容器
         
@@ -31,13 +32,13 @@ class BrowserSkills:
                 await page.evaluate(f"window.scrollBy(0, {distance})")
             else:
                 await page.evaluate(f"""
-                    (selector, dist) => {{
-                        const el = document.querySelector(selector);
+                    (args) => {{
+                        const el = document.querySelector(args.selector);
                         if (el) {{
-                            el.scrollTop += dist;
+                            el.scrollTop += args.dist;
                         }}
                     }}
-                """, selector, distance)
+                """, {"selector": selector, "dist": distance})
             
             await asyncio.sleep(delay / 1000)
             return True
@@ -95,7 +96,7 @@ class BrowserSkills:
             return False
 
     @staticmethod
-    async def map_zoom(page: Page, selector: str, direction: str = "in", times: int = 1):
+    async def map_zoom(page: Page, selector: str = None, direction: str = "in", times: int = 1):
         """
         地图缩放
         
@@ -123,7 +124,7 @@ class BrowserSkills:
             return False
 
     @staticmethod
-    async def fill_form(page: Page, data: Dict[str, str]):
+    async def fill_form(page: Page, data: Dict[str, str] = None):
         """
         填充表单
         
@@ -132,6 +133,9 @@ class BrowserSkills:
             data: 键值对 {选择器: 填充内容}
         """
         try:
+            if not data:
+                logger.warning("Skill fill_form: No data provided")
+                return True
             for selector, value in data.items():
                 await page.fill(selector, value)
             return True
@@ -140,9 +144,12 @@ class BrowserSkills:
             return False
 
     @staticmethod
-    async def click_element(page: Page, selector: str):
+    async def click_element(page: Page, selector: str = None):
         """点击元素"""
         try:
+            if not selector:
+                logger.warning("Skill click_element: No selector provided")
+                return False
             await page.click(selector)
             return True
         except Exception as e:
@@ -150,7 +157,7 @@ class BrowserSkills:
             return False
 
     @staticmethod
-    async def wait_time(page: Page, duration: int):
+    async def wait_time(page: Page, duration: int = 1000):
         """等待时间 (ms)"""
         await asyncio.sleep(duration / 1000)
         return True
@@ -213,6 +220,20 @@ class BrowserSkills:
         except Exception as e:
             logger.error(f"Skill infinite_scroll failed: {e}")
             return False
+
+    @staticmethod
+    async def block_container(page: Page, selector: str):
+        """
+        指定待提取内容的块状容器选择器 (提取配置类技能)
+        """
+        return True
+
+    @staticmethod
+    async def exclude_elements(page: Page, selectors: str):
+        """
+        指定要排除的元素选择器，用分号分隔 (提取配置类技能)
+        """
+        return True
 
     @staticmethod
     async def extract_coordinates(page: Page):
@@ -302,6 +323,36 @@ class BrowserSkills:
             logger.error(f"Skill extract_coordinates failed: {e}")
             return None
 
+    @staticmethod
+    async def execute_dynamic_skill(page: Page, skill_name: str, **params):
+        """
+        动态执行数据库中定义的技能
+        """
+        skill = await skill_service.get_skill_by_name(skill_name)
+        if not skill:
+            logger.warning(f"Dynamic skill '{skill_name}' not found or disabled")
+            return None
+
+        js_code = skill.get("js_code")
+        skill_type = skill.get("type", "interaction")
+
+        try:
+            logger.info(f"Executing dynamic skill: {skill_name} ({skill_type})")
+            # 在浏览器中执行 JS。如果是 extraction 类型，会自动返回结果。
+            # params 作为一个对象传入执行环境
+            result = await page.evaluate(f"""
+                (params) => {{
+                    {js_code}
+                }}
+            """, params)
+
+            if skill_type == "extraction":
+                return result
+            return True
+        except Exception as e:
+            logger.error(f"Dynamic skill '{skill_name}' execution failed: {e}")
+            return None
+
 # 技能映射表
 SKILLS_MAP = {
     "scroll": BrowserSkills.scroll_container,
@@ -311,5 +362,7 @@ SKILLS_MAP = {
     "fill": BrowserSkills.fill_form,
     "click": BrowserSkills.click_element,
     "wait": BrowserSkills.wait_time,
-    "extract_coordinates": BrowserSkills.extract_coordinates
+    "extract_coordinates": BrowserSkills.extract_coordinates,
+    "block_container": BrowserSkills.block_container,
+    "exclude_elements": BrowserSkills.exclude_elements
 }

@@ -8,6 +8,7 @@ import time
 import base64
 import re
 import logging
+import asyncio
 from typing import Optional, Dict, Any, List
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright_stealth import Stealth
@@ -122,7 +123,7 @@ class Scraper:
             interaction_steps = params.get("interaction_steps")
             skill_results = {}
             if interaction_steps:
-                from app.core.skills import SKILLS_MAP
+                from app.core.skills import SKILLS_MAP, BrowserSkills
                 logger.info(f"Executing {len(interaction_steps)} interaction steps")
                 for i, step in enumerate(interaction_steps):
                     # 兼容模型对象或字典
@@ -133,14 +134,17 @@ class Scraper:
                     step_params = step.get("params", {})
                     
                     if action in SKILLS_MAP:
-                        logger.info(f"Executing skill: {action} with params: {step_params}")
+                        logger.info(f"Executing built-in skill: {action} with params: {step_params}")
                         skill_func = SKILLS_MAP[action]
                         skill_res = await skill_func(page, **step_params)
-                        # 记录有意义的返回结果 (非布尔值或 None)
-                        if skill_res not in [True, False, None]:
-                            skill_results[f"{action}_{i}"] = skill_res
                     else:
-                        logger.warning(f"Unknown skill action: {action}")
+                        # 尝试从数据库加载动态技能
+                        logger.info(f"Skill '{action}' not in built-in map, trying dynamic skill")
+                        skill_res = await BrowserSkills.execute_dynamic_skill(page, action, **step_params)
+                    
+                    # 记录有意义的返回结果 (非布尔值或 None)
+                    if skill_res not in [True, False, None]:
+                        skill_results[f"{action}_{i}"] = skill_res
                 
                 # 交互完成后再次等待网络空闲，确保内容加载完毕
                 try:
@@ -204,8 +208,34 @@ class Scraper:
 
             # 如果启用了 Agent 识别，执行内容提取
             if params.get("agent_enabled") and params.get("agent_model_id"):
-                # 优化：提取视觉块状内容而不是原始 HTML
-                visual_content = await self._extract_visual_content(page)
+                # 提取交互步骤中的特殊技能参数 (用于内容提取配置)
+                container_selector = None
+                exclude_selectors_list = []
+                interaction_steps_dicts = []
+                if interaction_steps:
+                    for step in interaction_steps:
+                        if hasattr(step, "model_dump"):
+                            step = step.model_dump()
+                        interaction_steps_dicts.append(step)
+                        
+                        action = step.get("action")
+                        s_params = step.get("params", {})
+                        if action == "block_container":
+                            container_selector = s_params.get("selector")
+                        elif action == "exclude_elements":
+                            s_list = s_params.get("selectors", "")
+                            if s_list:
+                                exclude_selectors_list.extend([s.strip() for s in s_list.split(";") if s.strip()])
+                
+                interaction_steps = interaction_steps_dicts
+                exclude_selectors = ";".join(exclude_selectors_list) if exclude_selectors_list else None
+
+                # 优化：提取视觉块状内容
+                visual_content = await self._extract_visual_content(
+                    page, 
+                    container_selector=container_selector, 
+                    exclude_selectors=exclude_selectors
+                )
                 
                 # 如果有技能执行结果，将其注入到内容中，方便 LLM 提取
                 if skill_results:
@@ -215,13 +245,125 @@ class Scraper:
                     skill_info += "#####################\n\n"
                     visual_content = skill_info + visual_content
 
-                agent_result = await self._run_agent_extraction(
-                    content=visual_content,  # 传递处理后的内容
-                    screenshot=screenshot,
-                    model_id=params["agent_model_id"],
-                    user_prompt=params.get("agent_prompt", ""),
-                    system_prompt=params.get("agent_system_prompt"),
-                )
+                agent_result = None
+                
+                # 如果启用了并行提取
+                if params.get("agent_parallel_enabled"):
+                    batch_size = params.get("agent_parallel_batch_size") or 10
+                    
+                    header_content = ""
+                    main_content = visual_content
+                    if "### Skill Results ###" in visual_content:
+                        parts = visual_content.split("#####################\n\n", 1)
+                        if len(parts) == 2:
+                            header_content = parts[0] + "#####################\n\n"
+                            main_content = parts[1]
+                    
+                    items = main_content.split("\n------\n")
+                    # 过滤空块
+                    items = [item.strip() for item in items if item.strip()]
+                    chunks = [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
+                    
+                    logger.info(f"Parallel extraction enabled. Total items: {len(items)}, Chunks: {len(chunks)}, Batch size: {batch_size}")
+                    
+                    extract_tasks = []
+                    for chunk in chunks:
+                        chunk_content = header_content + "\n------\n".join(chunk)
+                        extract_tasks.append(self._run_agent_extraction(
+                            content=chunk_content,
+                            screenshot=screenshot,
+                            model_id=params["agent_model_id"],
+                            user_prompt=params.get("agent_prompt", ""),
+                            system_prompt=params.get("agent_system_prompt"),
+                            skills=[step.get("action") for step in interaction_steps] if interaction_steps else None
+                        ))
+                    
+                    chunk_results = await asyncio.gather(*extract_tasks)
+                    
+                    # 合并结果
+                    merged_extracted_items = []
+                    merged_raw_response = ""
+                    total_prompt_tokens = 0
+                    total_completion_tokens = 0
+                    max_processing_time = 0
+                    used_model_id = params.get("agent_model_id")
+                    used_model_name = None
+                    success_count = 0
+                    status = "success"
+                    error_msg = None
+                    
+                    for i, res in enumerate(chunk_results):
+                        # 获取使用的模型信息 (无论成功失败都尝试获取)
+                        if not used_model_name and res.get("model_name"):
+                            used_model_name = res.get("model_name")
+                        if res.get("model_id"):
+                            used_model_id = res.get("model_id")
+
+                        if res.get("status") == "success":
+                            success_count += 1
+                            if res.get("extracted_items"):
+                                merged_extracted_items.extend(res["extracted_items"])
+                            merged_raw_response += f"--- Chunk {i+1} (Success) ---\n{res.get('raw_response', '')}\n\n"
+                        else:
+                            error_detail = res.get("error") or "Unknown error"
+                            logger.error(f"Chunk {i+1} extraction failed: {error_detail}")
+                            error_msg = error_detail
+                            merged_raw_response += f"--- Chunk {i+1} (Failed) ---\nError: {error_detail}\n\n"
+                        
+                        # 累加 Token
+                        usage = res.get("token_usage")
+                        if usage:
+                            total_prompt_tokens += (usage.get("prompt_tokens") or 0)
+                            total_completion_tokens += (usage.get("completion_tokens") or 0)
+                        
+                        # 耗时取最大值
+                        max_processing_time = max(max_processing_time, (res.get("processing_time") or 0))
+                    
+                    if success_count == 0 and len(chunks) > 0:
+                        status = "failed"
+                    
+                    # 最终兜底：如果还是没有模型名称，尝试从数据库获取
+                    if not used_model_name and used_model_id:
+                        try:
+                            from app.services.llm_agent import get_llm_agent
+                            temp_agent = await get_llm_agent(used_model_id)
+                            if temp_agent:
+                                used_model_name = temp_agent.model_name or used_model_id
+                        except:
+                            pass
+                    
+                    agent_result = {
+                        "status": status,
+                        "error": error_msg if status == "failed" else None,
+                        "model_id": used_model_id,
+                        "model_name": used_model_name,
+                        "user_prompt": params.get("agent_prompt"),
+                        "system_prompt": params.get("agent_system_prompt"),
+                        "extracted_items": merged_extracted_items,
+                        "raw_response": merged_raw_response,
+                        "token_usage": {
+                            "prompt_tokens": total_prompt_tokens,
+                            "completion_tokens": total_completion_tokens,
+                            "total_tokens": total_prompt_tokens + total_completion_tokens
+                        },
+                        "processing_time": max_processing_time,
+                        "parallel_info": {
+                            "enabled": True,
+                            "chunks": len(chunks),
+                            "batch_size": batch_size,
+                            "success_count": success_count
+                        }
+                    }
+                else:
+                    agent_result = await self._run_agent_extraction(
+                        content=visual_content,
+                        screenshot=screenshot,
+                        model_id=params["agent_model_id"],
+                        user_prompt=params.get("agent_prompt", ""),
+                        system_prompt=params.get("agent_system_prompt"),
+                        skills=[step.get("action") for step in interaction_steps] if interaction_steps else None
+                    )
+
                 result["agent_result"] = agent_result
                 # 将视觉内容存入结果，方便调试
                 result["visual_content"] = visual_content
@@ -345,101 +487,118 @@ class Scraper:
         # 注册路由处理器
         await page.route("**/*", route_handler)
 
-    async def _extract_visual_content(self, page) -> str:
+    async def _extract_visual_content(self, page, container_selector: str = None, exclude_selectors: str = None) -> str:
         """
         提取页面的视觉块状内容
         通过 JavaScript 分析 DOM 元素的视觉位置，并将其按视觉顺序重组。
         """
         js_script = """
-        () => {
-            const results = [];
-            const walk = (node) => {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    const style = window.getComputedStyle(node);
-                    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-                        return;
-                    }
-                    
-                    const tagName = node.tagName.toLowerCase();
-                    if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) {
-                        return;
-                    }
-
-                    // 检查是否有直接的文本内容
-                    let hasText = false;
-                    for (const child of node.childNodes) {
-                        if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
-                            hasText = true;
-                            break;
-                        }
-                    }
-
-                    if (hasText || ['button', 'input', 'select', 'textarea', 'a'].includes(tagName)) {
-                        const rect = node.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            let text = node.innerText.trim().replace(/\\n+/g, ' ');
-                            
-                            // 针对 <a> 标签提取 href
-                            if (tagName === 'a' && node.href) {
-                                const href = node.href;
-                                if (text) {
-                                    text = `${text} [Link: ${href}]`;
-                                } else {
-                                    text = `[Link: ${href}]`;
-                                }
-                            }
-
-                            results.push({
-                                tagName,
-                                text: text,
-                                x: Math.round(rect.x),
-                                y: Math.round(rect.y),
-                                w: Math.round(rect.width),
-                                h: Math.round(rect.height)
-                            });
-                            return; // 已经处理了该节点的文本，不再递归其子节点（避免重复）
-                        }
-                    }
-                }
-                
-                for (const child of node.childNodes) {
-                    walk(child);
-                }
+        (args) => {
+            const containerSelector = args.containerSelector;
+            const excludeSelectorsStr = args.excludeSelectorsStr;
+            const excludeSelectorsList = (excludeSelectorsStr || "").split(';').map(s => s.trim()).filter(s => s);
+            const excludeSelector = excludeSelectorsList.join(',');
+            
+            const isExcluded = (node) => {
+                if (!excludeSelector) return false;
+                try {
+                    return node.matches(excludeSelector) || node.closest(excludeSelector) !== null;
+                } catch (e) { return false; }
             };
 
-            walk(document.body);
+            const extractFromRoot = (rootNode) => {
+                const results = [];
+                const walk = (node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const style = window.getComputedStyle(node);
+                        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0' || isExcluded(node)) {
+                            return;
+                        }
+                        
+                        const tagName = node.tagName.toLowerCase();
+                        if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) {
+                            return;
+                        }
 
-            // 按 Y 坐标排序，然后按 X 坐标排序
-            results.sort((a, b) => {
-                const yDiff = a.y - b.y;
-                if (Math.abs(yDiff) < 10) { // 认为在同一行
-                    return a.x - b.x;
+                        let hasText = false;
+                        for (const child of node.childNodes) {
+                            if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+                                hasText = true;
+                                break;
+                            }
+                        }
+
+                        if (hasText || ['button', 'input', 'select', 'textarea', 'a'].includes(tagName)) {
+                            const rect = node.getBoundingClientRect();
+                            if (rect.width > 0 && rect.height > 0) {
+                                let text = node.innerText.trim().replace(/\\n+/g, ' ');
+                                if (tagName === 'a' && node.href) {
+                                    const href = node.href;
+                                    text = text ? `${text} [Link: ${href}]` : `[Link: ${href}]`;
+                                }
+
+                                results.push({
+                                    tagName,
+                                    text: text,
+                                    x: Math.round(rect.x),
+                                    y: Math.round(rect.y),
+                                    w: Math.round(rect.width),
+                                    h: Math.round(rect.height)
+                                });
+                                return;
+                            }
+                        }
+                    }
+                    for (const child of node.childNodes) {
+                        walk(child);
+                    }
+                };
+
+                walk(rootNode);
+
+                // 排序与分块逻辑
+                results.sort((a, b) => {
+                    const yDiff = a.y - b.y;
+                    if (Math.abs(yDiff) < 10) return a.x - b.x;
+                    return yDiff;
+                });
+
+                const blocks = [];
+                let currentBlock = null;
+                for (const item of results) {
+                    if (!currentBlock || Math.abs(item.y - currentBlock.y) > 15) {
+                        if (currentBlock) blocks.push(currentBlock);
+                        currentBlock = { y: item.y, texts: [item.text] };
+                    } else {
+                        currentBlock.texts.push(item.text);
+                    }
                 }
-                return yDiff;
-            });
+                if (currentBlock) blocks.push(currentBlock);
+                return blocks.map(b => b.texts.join(' | ')).join('\\n');
+            };
 
-            // 分块聚合
-            const blocks = [];
-            let currentBlock = null;
-
-            for (const item of results) {
-                if (!currentBlock || Math.abs(item.y - currentBlock.y) > 15) {
-                    if (currentBlock) blocks.push(currentBlock);
-                    currentBlock = {
-                        y: item.y,
-                        texts: [item.text]
-                    };
-                } else {
-                    currentBlock.texts.push(item.text);
+            if (containerSelector) {
+                try {
+                    const containers = document.querySelectorAll(containerSelector);
+                    if (containers.length > 0) {
+                        return Array.from(containers)
+                            .map(c => extractFromRoot(c))
+                            .filter(txt => txt.trim())
+                            .join('\\n------\\n');
+                    }
+                } catch (e) {
+                    console.error("Invalid container selector", e);
                 }
             }
-            if (currentBlock) blocks.push(currentBlock);
-
-            return blocks.map(b => b.texts.join(' | ')).join('\\n');
+            
+            return extractFromRoot(document.body);
         }
         """
         try:
-            content = await page.evaluate(js_script)
+            content = await page.evaluate(js_script, {
+                "containerSelector": container_selector,
+                "excludeSelectorsStr": exclude_selectors
+            })
             return content
         except Exception as e:
             logger.error(f"Failed to extract visual content: {e}")
@@ -476,7 +635,7 @@ class Scraper:
         await page.route("**/*", route_handler)
 
     async def _run_agent_extraction(
-        self, content: str, screenshot: str, model_id: str, user_prompt: str, system_prompt: Optional[str] = None
+        self, content: str, screenshot: str, model_id: str, user_prompt: str, system_prompt: Optional[str] = None, skills: List[str] = None
     ) -> dict:
         """
         运行 Agent 内容提取
@@ -501,16 +660,23 @@ class Scraper:
                     error=f"Model {model_id} not found or disabled",
                 ).model_dump()
 
+            logger.info(f"Agent extraction started for task using model: {agent.model_name} ({model_id})")
             result = await agent.extract_content(
                 content=content,
                 screenshot_base64=screenshot,
                 user_prompt=user_prompt,
                 system_prompt=system_prompt,
+                skills=skills
             )
+            logger.info(f"Agent extraction completed using model: {agent.model_name}")
             return result.model_dump()
 
         except Exception as e:
-            return AgentResult(status=AgentStatus.FAILED, error=str(e)).model_dump()
+            return AgentResult(
+                status=AgentStatus.FAILED, 
+                error=str(e),
+                model_id=model_id
+            ).model_dump()
 
 
 # 全局抓取器实例

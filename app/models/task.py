@@ -50,6 +50,8 @@ class ScrapeParams(BaseModel):
     agent_model_id: Optional[str] = None  # 使用的 LLM 模型 ID
     agent_system_prompt: Optional[str] = None  # Agent 系统提示词内容
     agent_prompt: Optional[str] = None  # Agent 提取要求/用户提示词
+    agent_parallel_enabled: bool = False  # 是否启用并行提取
+    agent_parallel_batch_size: int = 10  # 并行提取的批次大小（块数量）
 
 
 class CacheConfig(BaseModel):
@@ -88,6 +90,8 @@ class ScrapedResult(BaseModel):
         None  # 拦截到的接口数据
     )
     agent_result: Optional[AgentResult] = None  # Agent 识别结果
+    skill_results: Optional[Dict[str, Any]] = None  # 交互技能执行结果
+    visual_content: Optional[str] = None  # 网页视觉块状内容
 
 
 class TaskError(BaseModel):

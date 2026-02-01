@@ -34,6 +34,8 @@ from app.api import (
     llm,
     prompt_template,
     proxies,
+    skills,
+    skill_bundles,
 )
 from app.db.mongo import mongo
 from app.db.redis import redis_client
@@ -113,6 +115,8 @@ app.include_router(nodes.router)
 app.include_router(llm.router)
 app.include_router(prompt_template.router)
 app.include_router(proxies.router)
+app.include_router(skills.router)
+app.include_router(skill_bundles.router)
 
 
 @app.on_event("startup")

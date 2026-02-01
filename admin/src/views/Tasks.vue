@@ -420,7 +420,7 @@
 
                 <div v-if="scrapeForm.params.agent_enabled" class="agent-config-body">
                   <el-row :gutter="20">
-                    <el-col :span="12">
+                    <el-col :span="8">
                       <el-form-item label="选择模型" required>
                         <el-select v-model="scrapeForm.params.agent_model_id" style="width: 100%" placeholder="选择大模型">
                           <el-option
@@ -438,7 +438,22 @@
                         </el-select>
                       </el-form-item>
                     </el-col>
-                    <el-col :span="12">
+                    <el-col :span="8">
+                      <el-form-item label="块状结果并行">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                          <el-switch v-model="scrapeForm.params.agent_parallel_enabled" />
+                          <el-input-number 
+                            v-if="scrapeForm.params.agent_parallel_enabled" 
+                            v-model="scrapeForm.params.agent_parallel_batch_size" 
+                            :min="1" 
+                            :max="50" 
+                            size="small" 
+                            style="width: 100px" 
+                          />
+                        </div>
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="8">
                       <el-form-item label="使用模板">
                         <div class="template-select-row">
                           <el-select
@@ -509,9 +524,25 @@
               <div class="skills-tab-content">
                 <div class="agent-header-row">
                   <div class="section-title">队列操作技能</div>
-                  <el-button type="primary" link @click="addInteractionStep">
-                    <el-icon><Plus /></el-icon> 添加步骤
-                  </el-button>
+                  <div class="header-right-actions">
+                    <el-select
+                      v-model="selectedBundleId"
+                      placeholder="应用技能包..."
+                      size="small"
+                      style="width: 180px; margin-right: 12px;"
+                      @change="applySkillBundle"
+                    >
+                      <el-option
+                        v-for="bundle in skillBundles"
+                        :key="bundle._id || bundle.id"
+                        :label="bundle.name"
+                        :value="bundle._id || bundle.id"
+                      />
+                    </el-select>
+                    <el-button type="primary" link @click="addInteractionStep">
+                      <el-icon><Plus /></el-icon> 添加步骤
+                    </el-button>
+                  </div>
                 </div>
 
                 <div v-if="scrapeForm.params.interaction_steps?.length" class="skills-list">
@@ -519,15 +550,20 @@
                     <div class="step-index">{{ index + 1 }}</div>
                     
                     <el-select v-model="step.action" placeholder="选择动作" style="width: 140px" @change="resetStepParams(index)">
-                      <el-option label="滚动 (Scroll)" value="scroll" />
-                      <el-option label="流式滚动 (Infinite)" value="infinite_scroll" />
-                      <el-option label="点击 (Click)" value="click" />
-                      <el-option label="翻页 (Next Page)" value="pagination" />
-                      <el-option label="填充 (Fill)" value="fill" />
-                      <el-option label="缩放 (Zoom)" value="zoom" />
-                      <el-option label="等待 (Wait)" value="wait" />
-                      <el-option label="提取坐标 (Coordinates)" value="extract_coordinates" />
-                    </el-select>
+                      <el-option
+                         v-for="skill in builtInSkills"
+                         :key="skill.name"
+                         :label="skill.display_name"
+                         :value="skill.name"
+                       />
+                       <el-divider v-if="customSkills.length" content-position="center">自定义技能</el-divider>
+                       <el-option
+                         v-for="skill in customSkills"
+                         :key="skill.name"
+                         :label="`${skill.display_name} (${skill.name})`"
+                         :value="skill.name"
+                       />
+                     </el-select>
 
                     <div class="step-params-config">
                       <!-- 基础滚动参数 -->
@@ -576,10 +612,18 @@
                       </template>
 
                       <!-- 等待参数 -->
-                      <template v-if="step.action === 'wait'">
-                        <el-input-number v-model="step.params.duration" :min="100" :step="500" placeholder="ms" size="small" style="width: 120px" />
-                      </template>
-                    </div>
+                       <template v-if="step.action === 'wait'">
+                         <el-input-number v-model="step.params.duration" :min="100" :step="500" placeholder="ms" size="small" style="width: 120px" />
+                       </template>
+
+                       <!-- 提取配置技能 -->
+                       <template v-if="step.action === 'block_container'">
+                         <el-input v-model="step.params.selector" placeholder="块状容器选择器 (如 .card-item)" size="small" style="width: 250px" />
+                       </template>
+                       <template v-if="step.action === 'exclude_elements'">
+                         <el-input v-model="step.params.selectors" placeholder="排除元素选择器 (用分号分隔)" size="small" style="width: 350px" />
+                       </template>
+                     </div>
 
                     <el-button type="danger" link @click="removeInteractionStep(index)">
                       <el-icon><Delete /></el-icon>
@@ -725,13 +769,21 @@
                   </el-tag>
                 </el-descriptions-item>
                 <el-descriptions-item label="使用模型">
-                  {{ currentTask.result.agent_result.model_name || '-' }}
+                  <span v-if="currentTask.result.agent_result.model_name">{{ currentTask.result.agent_result.model_name }}</span>
+                  <code v-else-if="currentTask.result.agent_result.model_id" style="font-size: 12px; color: #64748b;">{{ currentTask.result.agent_result.model_id }}</code>
+                  <span v-else>-</span>
                 </el-descriptions-item>
                 <el-descriptions-item label="处理耗时">
                   <el-tag type="warning" effect="plain" v-if="currentTask.result.agent_result.processing_time">
                     {{ currentTask.result.agent_result.processing_time.toFixed(2) }}s
                   </el-tag>
                   <span v-else>-</span>
+                </el-descriptions-item>
+                <el-descriptions-item label="并行模式" v-if="currentTask.result.agent_result.parallel_info">
+                  <el-tag type="success" size="small" effect="plain">
+                    {{ currentTask.result.agent_result.parallel_info.chunks }} 分块
+                    (批次: {{ currentTask.result.agent_result.parallel_info.batch_size }})
+                  </el-tag>
                 </el-descriptions-item>
               </el-descriptions>
 
@@ -879,6 +931,20 @@
             </el-option>
           </el-select>
         </el-form-item>
+
+        <el-form-item label="块状并行" v-if="retryForm.agentEnabled">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <el-switch v-model="retryForm.agentParallelEnabled" />
+            <el-input-number 
+              v-if="retryForm.agentParallelEnabled" 
+              v-model="retryForm.agentParallelBatchSize" 
+              :min="1" 
+              :max="50" 
+              size="small" 
+              style="width: 100px" 
+            />
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showRetryDialog = false">取消</el-button>
@@ -944,7 +1010,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Picture, WarningFilled, DeleteFilled, Setting, Connection, Monitor, Timer, Search, CopyDocument, View, VideoPlay, Link, Lock, Promotion, QuestionFilled, Cpu, Right, MagicStick, InfoFilled, Download, DocumentCopy, Grid, EditPen, Collection } from '@element-plus/icons-vue'
-import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, retryTask, deleteTasksBatch, getLLMModels, getPromptTemplates, createPromptTemplate, testProxy, getProxies } from '../api'
+import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, retryTask, deleteTasksBatch, getLLMModels, getPromptTemplates, createPromptTemplate, testProxy, getProxies, getSkillBundles, getSkills as getCustomSkills, getBuiltInSkills } from '../api'
 import dayjs from 'dayjs'
 
 const loading = ref(false)
@@ -952,6 +1018,8 @@ const tasks = ref([])
 const llmModels = ref([])
 const selectedTasks = ref([])
 const testingProxy = ref(false)
+const builtInSkills = ref([])
+const customSkills = ref([])
 
 const handleTestProxy = async () => {
   if (!scrapeForm.value.params.proxy.server) {
@@ -995,6 +1063,12 @@ const promptTemplates = ref([])
 const filteredTemplates = ref([])
 const selectedTemplateId = ref(null)
 const templateLoading = ref(false)
+
+// Skill Bundles
+const skillBundles = ref([])
+const bundleLoading = ref(false)
+const selectedBundleId = ref(null)
+
 const showSaveTemplateDialogVisible = ref(false)
 const saveTemplateForm = ref({ name: '', description: '' })
 
@@ -1096,7 +1170,9 @@ const retryForm = ref({
   taskId: '',
   url: '',
   agentEnabled: false,
-  agentModelId: null
+  agentModelId: null,
+  agentParallelEnabled: false,
+  agentParallelBatchSize: 10
 })
 const scrapeForm = ref({
   url: '',
@@ -1125,7 +1201,9 @@ const scrapeForm = ref({
     agent_enabled: false,
     agent_model_id: null,
     agent_system_prompt: '',
-    agent_prompt: ''
+    agent_prompt: '',
+    agent_parallel_enabled: false,
+    agent_parallel_batch_size: 10
   },
   cache: {
     enabled: true,
@@ -1203,7 +1281,9 @@ const confirmRetry = (row) => {
     taskId: row.task_id,
     url: row.url,
     agentEnabled: !!row.params?.agent_enabled,
-    agentModelId: row.params?.agent_model_id || null
+    agentModelId: row.params?.agent_model_id || null,
+    agentParallelEnabled: !!row.params?.agent_parallel_enabled,
+    agentParallelBatchSize: row.params?.agent_parallel_batch_size || 10
   }
   showRetryDialog.value = true
 }
@@ -1212,7 +1292,12 @@ const handleRetry = async () => {
   try {
     showRetryDialog.value = false
     loading.value = true
-    await retryTask(retryForm.value.taskId, retryForm.value.agentModelId)
+    await retryTask(
+      retryForm.value.taskId, 
+      retryForm.value.agentModelId,
+      retryForm.value.agentParallelEnabled,
+      retryForm.value.agentParallelBatchSize
+    )
     ElMessage.success('已重新提交任务')
     loadTasks()
   } catch (error) {
@@ -1545,9 +1630,38 @@ const resetStepParams = (index) => {
     fill: { data: {} },
     click: { selector: '' },
     wait: { duration: 1000 },
-    extract_coordinates: {}
+    extract_coordinates: {},
+    block_container: { selector: '' },
+    exclude_elements: { selectors: '' }
   }
   step.params = JSON.parse(JSON.stringify(defaults[step.action] || {}))
+}
+
+const loadSkillBundles = async () => {
+  bundleLoading.value = true
+  try {
+    const data = await getSkillBundles()
+    skillBundles.value = data
+  } catch (error) {
+    console.error('Failed to load skill bundles:', error)
+  } finally {
+    bundleLoading.value = false
+  }
+}
+
+const applySkillBundle = (bundleId) => {
+  if (!bundleId) return
+  const bundle = skillBundles.value.find(b => (b._id || b.id) === bundleId)
+  if (bundle && bundle.steps) {
+    if (!scrapeForm.value.params.interaction_steps) {
+      scrapeForm.value.params.interaction_steps = []
+    }
+    // 将技能包中的步骤追加到当前步骤中
+    const newSteps = JSON.parse(JSON.stringify(bundle.steps))
+    scrapeForm.value.params.interaction_steps.push(...newSteps)
+    ElMessage.success(`已应用技能包: ${bundle.name}`)
+    selectedBundleId.value = null // 重置选择器
+  }
 }
 
 const addFillPair = (index) => {
@@ -1566,10 +1680,26 @@ const addFillPair = (index) => {
   }).catch(() => {})
 }
 
+const loadSkills = async () => {
+  try {
+    const [builtIn, custom] = await Promise.all([
+      getBuiltInSkills(),
+      getCustomSkills({ is_enabled: true })
+    ])
+    builtInSkills.value = builtIn
+    customSkills.value = custom
+  } catch (err) {
+    console.error('Failed to load skills:', err)
+  }
+}
+
 onMounted(() => {
   loadTasks()
   loadLLMModels()
   loadAllTemplates()
+  loadProxyPool()
+  loadSkills()
+  loadSkillBundles()
 })
 </script>
 

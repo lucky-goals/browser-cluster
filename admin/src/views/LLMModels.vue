@@ -65,6 +65,20 @@
             </el-tag>
           </template>
         </el-table-column>
+        
+        <el-table-column prop="supports_stream" label="流式" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.supports_stream ? 'success' : 'info'" effect="plain" size="small">
+              {{ row.supports_stream ? '支持' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="max_retries" label="最大重试" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag type="info" effect="plain" size="small">{{ row.max_retries ?? 3 }}</el-tag>
+          </template>
+        </el-table-column>
 
         <el-table-column prop="is_enabled" label="状态" width="100" align="center">
           <template #default="{ row }">
@@ -147,33 +161,41 @@
             <template #prefix><el-icon><Lock /></el-icon></template>
           </el-input>
         </el-form-item>
-
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="Temperature">
               <el-slider v-model="form.temperature" :min="0" :max="2" :step="0.1" show-input :show-input-controls="false" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="Max Tokens">
               <el-input-number v-model="form.max_tokens" :min="100" :max="128000" :step="1000" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="最大重试次数">
+              <el-input-number v-model="form.max_retries" :min="0" :max="10" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-row :gutter="20">
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="支持视觉">
               <el-switch v-model="form.supports_vision" />
-              <span style="margin-left: 8px; color: #909399; font-size: 12px;">可发送截图给模型</span>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
+            <el-form-item label="支持流式">
+              <el-switch v-model="form.supports_stream" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
             <el-form-item label="设为默认">
               <el-switch v-model="form.is_default" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="启用状态">
               <el-switch v-model="form.is_enabled" />
             </el-form-item>
@@ -220,6 +242,8 @@ const defaultForm = {
   temperature: 0.7,
   max_tokens: 4096,
   supports_vision: false,
+  supports_stream: false,
+  max_retries: 3,
   is_default: false,
   is_enabled: true
 }
@@ -295,6 +319,8 @@ const showEditDialog = (row) => {
     temperature: row.temperature,
     max_tokens: row.max_tokens,
     supports_vision: row.supports_vision || false,
+    supports_stream: row.supports_stream || false,
+    max_retries: row.max_retries ?? 3,
     is_default: row.is_default,
     is_enabled: row.is_enabled
   }

@@ -31,6 +31,8 @@ class LLMModelBase(BaseModel):
     temperature: float = Field(default=0.7, ge=0, le=2)  # 温度参数
     max_tokens: int = Field(default=4096, ge=1)  # 最大输出 tokens
     supports_vision: bool = False  # 是否支持视觉/图片输入
+    supports_stream: bool = False  # 是否支持流式输出
+    max_retries: int = 3  # 最大重试次数
     is_default: bool = False  # 是否默认模型
     is_enabled: bool = True  # 是否启用
 
@@ -52,6 +54,8 @@ class LLMModelUpdate(BaseModel):
     temperature: Optional[float] = Field(default=None, ge=0, le=2)
     max_tokens: Optional[int] = Field(default=None, ge=1)
     supports_vision: Optional[bool] = None
+    supports_stream: Optional[bool] = None
+    max_retries: Optional[int] = None
     is_default: Optional[bool] = None
     is_enabled: Optional[bool] = None
 
@@ -115,5 +119,6 @@ class AgentResult(BaseModel):
     token_usage: Optional[Dict[str, Any]] = None  # tokens 使用量，可能包含嵌套结构
     processing_time: Optional[float] = None  # 处理耗时（秒）
     error: Optional[str] = None  # 错误信息
+    parallel_info: Optional[Dict[str, Any]] = None  # 并行提取信息 (chunks, batch_size 等)
     created_at: Optional[datetime] = None  # 开始处理时间
     completed_at: Optional[datetime] = None  # 完成时间

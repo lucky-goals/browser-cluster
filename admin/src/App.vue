@@ -68,6 +68,14 @@
               <el-icon><Document /></el-icon>
               <template #title>提示词模板</template>
             </el-menu-item>
+            <el-menu-item index="skills">
+              <el-icon><Pointer /></el-icon>
+              <template #title>技能管理</template>
+            </el-menu-item>
+            <el-menu-item index="skill-bundles">
+              <el-icon><Collection /></el-icon>
+              <template #title>技能包管理</template>
+            </el-menu-item>
           </el-sub-menu>
         </el-menu>
       </el-aside>
@@ -150,7 +158,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { 
   House, List, DataLine, Monitor, Setting, User, Cpu, Document, MagicStick,
-  Expand, Fold, CircleCheck, CircleClose 
+  Expand, Fold, CircleCheck, CircleClose, Pointer, Collection
 } from '@element-plus/icons-vue'
 import { useStatsStore } from './stores/stats'
 import { useAuthStore } from './stores/auth'
@@ -182,7 +190,9 @@ const currentRouteName = computed(() => {
     '/configs': '系统设置',
     '/users': '用户管理',
     '/llm-models': '模型设置',
-    '/proxies': '代理管理'
+    '/proxies': '代理管理',
+    '/skills': '技能管理',
+    '/skill-bundles': '技能包管理'
   }
   return names[path] || '未知'
 })

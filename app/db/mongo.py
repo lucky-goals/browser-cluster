@@ -122,6 +122,26 @@ class MongoDB:
         """
         return self.db.proxies
 
+    @property
+    def skills(self):
+        """
+        获取技能配置集合
+
+        Returns:
+            Collection: skills 集合
+        """
+        return self.db.skills
+
+    @property
+    def skill_bundles(self):
+        """
+        获取技能包配置集合
+
+        Returns:
+            Collection: skill_bundles 集合
+        """
+        return self.db.skill_bundles
+
 
 # 全局 MongoDB 实例
 mongo = MongoDB()

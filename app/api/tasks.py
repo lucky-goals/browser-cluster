@@ -3,6 +3,7 @@
 
 提供任务查询、列表、删除等功能
 """
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime
 from app.models.task import TaskResponse, BatchDeleteRequest
@@ -166,13 +167,20 @@ async def delete_task(task_id: str):
 
 
 @router.post("/{task_id}/retry", response_model=TaskResponse)
-async def retry_task(task_id: str, agent_model_id: str = None):
+async def retry_task(
+    task_id: str, 
+    agent_model_id: Optional[str] = None,
+    agent_parallel_enabled: Optional[bool] = None,
+    agent_parallel_batch_size: Optional[int] = None
+):
     """
     重试任务
 
     Args:
         task_id: 任务 ID
         agent_model_id: 可选的新模型 ID
+        agent_parallel_enabled: 可选，是否启用并行代理
+        agent_parallel_batch_size: 可选，并行代理的批处理大小
 
     Returns:
         TaskResponse: 更新后的任务信息
@@ -189,6 +197,10 @@ async def retry_task(task_id: str, agent_model_id: str = None):
     params = task.get("params", {}).copy()
     if agent_model_id:
         params["agent_model_id"] = agent_model_id
+    if agent_parallel_enabled is not None:
+        params["agent_parallel_enabled"] = agent_parallel_enabled
+    if agent_parallel_batch_size is not None:
+        params["agent_parallel_batch_size"] = agent_parallel_batch_size
 
     # 3. 更新任务状态为 pending，并清除之前的错误和结果
     now = datetime.now()
