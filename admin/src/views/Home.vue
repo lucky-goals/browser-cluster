@@ -63,8 +63,8 @@
         <div class="arch-step">
           <div class="step-card">
             <div class="step-icon"><Connection /></div>
-            <h4>Unified Gateway</h4>
-            <p>基于 FastAPI 的高性能异步接口，提供鉴权、流控与任务调度入口。</p>
+            <h4>{{ $t('home.arch.gateway.title') }}</h4>
+            <p>{{ $t('home.arch.gateway.desc') }}</p>
           </div>
         </div>
         <div class="arch-connector">
@@ -73,8 +73,8 @@
         <div class="arch-step">
           <div class="step-card">
             <div class="step-icon"><Operation /></div>
-            <h4>Task Queue</h4>
-            <p>RabbitMQ 实现任务削峰填谷，确保高并发下的系统稳定性与可靠投递。</p>
+            <h4>{{ $t('home.arch.queue.title') }}</h4>
+            <p>{{ $t('home.arch.queue.desc') }}</p>
           </div>
         </div>
         <div class="arch-connector">
@@ -83,8 +83,8 @@
         <div class="arch-step">
           <div class="step-card">
             <div class="step-icon"><Cpu /></div>
-            <h4>Browser Cluster</h4>
-            <p>分布式 Playwright 节点，支持隐身模式、指纹混淆与动态扩缩容。</p>
+            <h4>{{ $t('home.arch.cluster.title') }}</h4>
+            <p>{{ $t('home.arch.cluster.desc') }}</p>
           </div>
         </div>
         <div class="arch-connector">
@@ -93,8 +93,8 @@
         <div class="arch-step">
           <div class="step-card">
             <div class="step-icon"><Files /></div>
-            <h4>Data Persistence</h4>
-            <p>MongoDB 存储完整任务链路，Redis 提供毫秒级结果缓存与状态同步。</p>
+            <h4>{{ $t('home.arch.persistence.title') }}</h4>
+            <p>{{ $t('home.arch.persistence.desc') }}</p>
           </div>
         </div>
       </div>

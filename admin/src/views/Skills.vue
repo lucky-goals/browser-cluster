@@ -4,122 +4,130 @@
       <template #header>
         <div class="card-header">
           <div class="header-left">
-            <span class="title">技能管理</span>
-            <span class="subtitle">管理和扩展浏览器交互及提取技能</span>
+            <span class="title">{{ $t('skills.title') }}</span>
+            <span class="subtitle">{{ $t('skills.subtitle') }}</span>
           </div>
           <div class="header-actions">
-            <el-button type="primary" @click="handleAddSkill">
-              <el-icon><Plus /></el-icon> 新增技能
+            <el-button type="primary" @click="showCreateDialog">
+              <el-icon><Plus /></el-icon> {{ $t('skills.addSkill') }}
             </el-button>
             <el-button @click="loadSkills" :loading="loading">
-              <el-icon><Refresh /></el-icon> 刷新
+              <el-icon><Refresh /></el-icon> {{ $t('skills.refresh') }}
             </el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="skills" v-loading="loading" border stripe style="width: 100%">
-        <el-table-column prop="display_name" label="技能名称" min-width="150" />
-        <el-table-column prop="name" label="标识符" width="180">
+      <el-table :data="skills" v-loading="loading" stripe>
+        <el-table-column prop="name" :label="$t('skills.columns.name')" min-width="150">
           <template #default="{ row }">
-            <code>{{ row.name }}</code>
+            <div class="skill-name-cell">
+              <span class="skill-name">{{ row.name }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="type" label="类型" width="120" align="center">
+        <el-table-column prop="skill_id" :label="$t('skills.columns.id')" width="180">
           <template #default="{ row }">
-            <el-tag :type="row.type === 'extraction' ? 'success' : 'info'">
-              {{ row.type === 'extraction' ? '数据提取' : '交互操作' }}
+            <code class="skill-id">{{ row.skill_id }}</code>
+          </template>
+        </el-table-column>
+        <el-table-column prop="type" :label="$t('skills.columns.type')" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.type === 'extraction' ? 'warning' : 'success'" size="small">
+              {{ row.type === 'extraction' ? $t('skills.types.extraction') : $t('skills.types.interaction') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="is_builtin" label="属性" width="100" align="center">
+        <el-table-column prop="is_builtin" :label="$t('skills.columns.attr')" width="100" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.is_builtin" type="warning" size="small">内置</el-tag>
-            <el-tag v-else type="primary" size="small">自定义</el-tag>
+            <el-tag :type="row.is_builtin ? 'info' : 'primary'" effect="plain" size="small">
+              {{ row.is_builtin ? $t('skills.attrs.builtin') : $t('skills.attrs.custom') }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_enabled" label="状态" width="100" align="center">
+        <el-table-column prop="is_enabled" :label="$t('skills.columns.status')" width="100" align="center">
           <template #default="{ row }">
-            <el-switch v-model="row.is_enabled" @change="toggleSkillStatus(row)" :disabled="row.is_builtin" />
+            <el-switch
+              v-model="row.is_enabled"
+              @change="toggleSkillStatus(row)"
+              :disabled="row.is_builtin"
+            />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right" align="center">
+        <el-table-column :label="$t('skills.columns.actions')" width="180" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="handleEditSkill(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDeleteSkill(row)" :disabled="row.is_builtin">删除</el-button>
+            <el-button size="small" type="primary" @click="showEditDialog(row)" :icon="Edit">{{ $t('skills.actions.edit') }}</el-button>
+            <el-button 
+              size="small" 
+              type="danger" 
+              @click="confirmDelete(row)" 
+              :icon="Delete"
+              :disabled="row.is_builtin"
+            >{{ $t('skills.actions.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
     <!-- 技能编辑对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="isEdit ? '编辑技能' : '新增技能'"
-      width="85%"
-      destroy-on-close
+    <el-dialog 
+      v-model="showDialog" 
+      :title="isEdit ? $t('skills.dialog.editTitle') : $t('skills.dialog.createTitle')" 
+      width="800px" 
+      top="10vh" 
+      destroy-on-close 
+      class="skill-dialog"
     >
-      <el-form :model="skillForm" label-width="100px" label-position="top">
+      <el-form :model="form" label-width="120px" label-position="top">
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="名称 (标识符)" required>
-              <el-input v-model="skillForm.name" placeholder="例如: extract_prices" :disabled="isEdit" />
+            <el-form-item :label="$t('skills.dialog.id')" required>
+              <el-input v-model="form.skill_id" :placeholder="$t('skills.dialog.idPlaceholder')" :disabled="isEdit" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="显示名称" required>
-              <el-input v-model="skillForm.display_name" placeholder="例如: 提取价格" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="技能类型">
-              <el-select v-model="skillForm.type" style="width: 100%">
-                <el-option label="交互操作 (Interaction)" value="interaction" />
-                <el-option label="数据提取 (Extraction)" value="extraction" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="启用状态">
-              <el-switch v-model="skillForm.is_enabled" />
+            <el-form-item :label="$t('skills.dialog.name')" required>
+              <el-input v-model="form.name" :placeholder="$t('skills.dialog.namePlaceholder')" />
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-form-item label="描述">
-          <el-input v-model="skillForm.description" type="textarea" :rows="2" placeholder="简要描述技能用途..." />
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item :label="$t('skills.dialog.type')" required>
+              <el-radio-group v-model="form.type">
+                <el-radio-button label="interaction">{{ $t('skills.dialog.interaction') }}</el-radio-button>
+                <el-radio-button label="extraction">{{ $t('skills.dialog.extraction') }}</el-radio-button>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item :label="$t('skills.dialog.isEnabled')">
+              <el-switch v-model="form.is_enabled" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item :label="$t('skills.dialog.description')">
+          <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="$t('skills.dialog.descriptionPlaceholder')" />
         </el-form-item>
 
-        <el-form-item label="JavaScript 代码" required class="code-item">
-          <div class="code-editor-outer">
-            <codemirror
-              v-model="skillForm.js_code"
-              placeholder="// JavaScript 代码...
-// 如果是提取类型，最后必须 return 一个值
-// 示例：
-// return { title: document.title, url: window.location.href };"
-              :style="{ height: '400px', width: '100%' }"
-              :autofocus="true"
-              :indent-with-tab="true"
-              :tab-size="2"
-              :extensions="extensions"
-            />
-            <div class="form-util-bar">
-              <div class="form-tip">
-                <el-icon><InfoFilled /></el-icon>
-                代码将在浏览器环境中执行，可以使用 `document`, `window` 等对象。如果是采集类技能，请确保最后使用 `return` 返回结果。
-              </div>
-            </div>
+        <el-form-item :label="$t('skills.dialog.jsCode')" required>
+          <el-input
+            v-model="form.code"
+            type="textarea"
+            :rows="12"
+            :placeholder="$t('skills.dialog.jsPlaceholder')"
+            class="code-editor"
+          />
+          <div class="code-tip">
+            {{ $t('skills.dialog.tip') }}
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitSkill" :loading="submitting">确定</el-button>
+        <el-button @click="showDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">{{ $t('skills.dialog.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -127,9 +135,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, InfoFilled, Pointer } from '@element-plus/icons-vue'
-import { getSkills, createSkill, updateSkill, deleteSkill } from '../api'
+import { Plus, Refresh, InfoFilled, Pointer, Edit, Delete } from '@element-plus/icons-vue'
+import { getSkills, createSkill, updateSkill, deleteSkill, toggleSkill } from '../api'
+
+const { t } = useI18n()
 
 // CodeMirror imports
 import { Codemirror } from 'vue-codemirror'
@@ -141,68 +152,76 @@ const extensions = [javascript(), oneDark]
 const loading = ref(false)
 const submitting = ref(false)
 const skills = ref([])
-const dialogVisible = ref(false)
+const showDialog = ref(false)
 const isEdit = ref(false)
-const skillForm = ref({
+const form = ref({
+  skill_id: '',
   name: '',
-  display_name: '',
   type: 'interaction',
   description: '',
-  js_code: '',
+  code: '',
   is_enabled: true
 })
+const editId = ref(null)
 
 const loadSkills = async () => {
   loading.value = true
   try {
     const data = await getSkills()
-    skills.value = data
+    skills.value = data.items
   } catch (error) {
-    ElMessage.error('加载技能列表失败')
+    ElMessage.error(t('skills.messages.loadFailed'))
   } finally {
     loading.value = false
   }
 }
 
-const handleAddSkill = () => {
+const showCreateDialog = () => {
   isEdit.value = false
-  skillForm.value = {
+  form.value = {
+    skill_id: '',
     name: '',
-    display_name: '',
     type: 'interaction',
     description: '',
-    js_code: '',
+    code: '',
     is_enabled: true
   }
-  dialogVisible.value = true
+  showDialog.value = true
 }
 
-const handleEditSkill = (row) => {
+const showEditDialog = (row) => {
   isEdit.value = true
-  skillForm.value = { ...row }
-  dialogVisible.value = true
+  editId.value = row._id
+  form.value = {
+    skill_id: row.skill_id,
+    name: row.name,
+    type: row.type,
+    description: row.description,
+    code: row.code,
+    is_enabled: row.is_enabled
+  }
+  showDialog.value = true
 }
 
-const submitSkill = async () => {
-  if (!skillForm.value.name || !skillForm.value.display_name || !skillForm.value.js_code) {
-    ElMessage.warning('请填写必填项')
+const submitForm = async () => {
+  if (!form.value.skill_id || !form.value.name || !form.value.code) {
+    ElMessage.warning(t('skills.messages.fillRequired'))
     return
   }
 
   submitting.value = true
   try {
     if (isEdit.value) {
-      const skillId = skillForm.value._id || skillForm.value.id
-      await updateSkill(skillId, skillForm.value)
-      ElMessage.success('更新成功')
+      await updateSkill(editId.value, form.value)
+      ElMessage.success(t('skills.messages.updateSuccess'))
     } else {
-      await createSkill(skillForm.value)
-      ElMessage.success('创建成功')
+      await createSkill(form.value)
+      ElMessage.success(t('skills.messages.createSuccess'))
     }
-    dialogVisible.value = false
+    showDialog.value = false
     loadSkills()
   } catch (error) {
-    ElMessage.error('保存失败: ' + (error.response?.data?.detail || error.message))
+    ElMessage.error(t('skills.messages.saveFailed') + (error.response?.data?.detail || error.message))
   } finally {
     submitting.value = false
   }
@@ -210,28 +229,32 @@ const submitSkill = async () => {
 
 const toggleSkillStatus = async (row) => {
   try {
-    const skillId = row._id || row.id
-    await updateSkill(skillId, { is_enabled: row.is_enabled })
-    ElMessage.success('状态更新成功')
+    await toggleSkill(row._id, row.is_enabled)
+    ElMessage.success(t('skills.messages.toggleSuccess'))
   } catch (error) {
+    ElMessage.error(t('skills.messages.toggleFailed'))
     row.is_enabled = !row.is_enabled
-    ElMessage.error('更新状态失败')
   }
 }
 
-const handleDeleteSkill = (row) => {
-  ElMessageBox.confirm('确定删除该技能吗？', '提示', {
-    type: 'warning'
-  }).then(async () => {
+const confirmDelete = (row) => {
+  ElMessageBox.confirm(
+    t('skills.messages.deleteConfirm'),
+    t('skills.messages.deleteConfirmTitle'),
+    {
+      confirmButtonText: t('common.delete'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning'
+    }
+  ).then(async () => {
     try {
-      const skillId = row._id || row.id
-      await deleteSkill(skillId)
-      ElMessage.success('删除成功')
+      await deleteSkill(row._id)
+      ElMessage.success(t('skills.messages.deleteSuccess'))
       loadSkills()
     } catch (error) {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('skills.messages.deleteFailed'))
     }
-  })
+  }).catch(() => {})
 }
 
 onMounted(() => {

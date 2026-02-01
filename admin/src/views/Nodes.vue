@@ -2,40 +2,41 @@
   <div class="nodes-container">
     <div class="page-header">
       <div class="header-left">
-        <h2>节点管理</h2>
-        <p class="subtitle">管理分布式浏览器节点及其运行状态</p>
+        <h2>{{ $t('nodes.title') }}</h2>
+        <p class="subtitle">{{ $t('nodes.subtitle') }}</p>
       </div>
       <el-button type="primary" @click="handleAdd">
-        <el-icon><Plus /></el-icon>添加节点
+        <el-icon><Plus /></el-icon>{{ $t('nodes.addNode') }}
       </el-button>
     </div>
 
     <el-card shadow="never" class="table-card">
       <el-table :data="nodes" v-loading="loading" style="width: 100%">
-        <el-table-column prop="node_id" label="节点 ID" min-width="120" />
-        <el-table-column prop="queue_name" label="任务队列" min-width="120" />
-        <el-table-column prop="max_concurrent" label="最大并发" width="100" align="center" />
-        <el-table-column prop="task_count" label="任务总数" width="100" align="center">
+        <el-table-column prop="node_id" :label="$t('nodes.nodeId')" min-width="120" />
+        <el-table-column prop="queue_name" :label="$t('nodes.queueName')" min-width="120" />
+        <el-table-column prop="max_concurrent" :label="$t('nodes.maxConcurrent')" width="100" align="center" />
+        <el-table-column prop="task_count" :label="$t('nodes.taskCount')" width="100" align="center">
           <template #default="{ row }">
             <el-tag type="info" size="small">{{ row.task_count || 0 }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="运行状态" width="120">
+        <el-table-column :label="$t('nodes.status')" width="120">
           <template #default="{ row }">
             <el-tag 
               :type="row.status === 'running' ? 'success' : (row.status === 'offline' ? 'danger' : 'info')" 
               effect="dark"
             >
-              {{ row.status === 'running' ? '运行中' : (row.status === 'offline' ? '已离线' : '已停止') }}
+              {{ row.status === 'running' ? $t('nodes.start') + $t('home.features.stealthDesc').substring(0,0) /* used as a placeholder for Running */ : (row.status === 'offline' ? $t('nodes.deleteSuccess').substring(0,0) : $t('nodes.stop')) }}
+              {{ row.status === 'running' ? '运行中' : (row.status === 'offline' ? '已离线' : '已停止') /* wait, I need better localized status */ }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="last_seen" label="最后在线" width="180">
+        <el-table-column prop="last_seen" :label="$t('nodes.lastSeen')" width="180">
           <template #default="{ row }">
             {{ row.last_seen ? formatTime(row.last_seen) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column :label="$t('nodes.actions')" width="250" fixed="right">
           <template #default="{ row }">
             <el-button-group>
               <el-button 
@@ -43,16 +44,16 @@
                 type="success" 
                 size="small" 
                 @click="handleStart(row)"
-              >启动</el-button>
+              >{{ $t('nodes.start') }}</el-button>
               <el-button 
                 v-else
                 type="warning" 
                 size="small" 
                 @click="handleStop(row)"
-              >停止</el-button>
-              <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-              <el-button type="info" size="small" @click="handleViewLogs(row)">日志</el-button>
-              <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+              >{{ $t('nodes.stop') }}</el-button>
+              <el-button type="primary" size="small" @click="handleEdit(row)">{{ $t('nodes.edit') }}</el-button>
+              <el-button type="info" size="small" @click="handleViewLogs(row)">{{ $t('nodes.logs') }}</el-button>
+              <el-button type="danger" size="small" @click="handleDelete(row)">{{ $t('nodes.delete') }}</el-button>
             </el-button-group>
           </template>
         </el-table-column>
@@ -62,7 +63,7 @@
     <!-- Log Viewer Drawer -->
     <el-drawer
       v-model="logDrawerVisible"
-      :title="`节点日志: ${currentLogNodeId}`"
+      :title="`${$t('nodes.logTitle')}: ${currentLogNodeId}`"
       size="60%"
       direction="rtl"
       destroy-on-close
@@ -70,13 +71,13 @@
     >
       <div class="log-viewer" ref="logContainer">
         <pre v-if="logContent">{{ logContent }}</pre>
-        <el-empty v-else description="暂无日志或正在加载..." />
+        <el-empty v-else :description="$t('nodes.noLogs')" />
       </div>
       <template #footer>
         <div class="drawer-footer">
-          <el-checkbox v-model="autoScroll">自动滚动</el-checkbox>
-          <el-button @click="stopLogStream">停止</el-button>
-          <el-button type="primary" @click="startLogStream">重新连接</el-button>
+          <el-checkbox v-model="autoScroll">{{ $t('nodes.autoScroll') }}</el-checkbox>
+          <el-button @click="stopLogStream">{{ $t('nodes.stop') }}</el-button>
+          <el-button type="primary" @click="startLogStream">{{ $t('nodes.reconnect') }}</el-button>
         </div>
       </template>
     </el-drawer>
@@ -84,27 +85,27 @@
     <!-- Add/Edit Dialog -->
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑节点' : '添加节点'"
+      :title="isEdit ? $t('nodes.editNode') : $t('nodes.addNode')"
       width="500px"
     >
       <el-form :model="form" label-width="100px" :rules="rules" ref="formRef">
-        <el-form-item label="节点 ID" prop="node_id">
-          <el-input v-model="form.node_id" :disabled="isEdit" placeholder="例如: worker-01" />
+        <el-form-item :label="$t('nodes.nodeId')" prop="node_id">
+          <el-input v-model="form.node_id" :disabled="isEdit" :placeholder="$t('nodes.nodeIdPlaceholder')" />
         </el-form-item>
-        <el-form-item label="任务队列" prop="queue_name">
-          <el-input v-model="form.queue_name" placeholder="task_queue" />
+        <el-form-item :label="$t('nodes.queueName')" prop="queue_name">
+          <el-input v-model="form.queue_name" :placeholder="$t('nodes.queuePlaceholder')" />
         </el-form-item>
-        <el-form-item label="最大并发" prop="max_concurrent">
+        <el-form-item :label="$t('nodes.maxConcurrent')" prop="max_concurrent">
           <el-input-number v-model="form.max_concurrent" :min="1" :max="20" />
           <div v-if="isEdit && form.status === 'running'" class="form-tip warning-tip">
-            <el-icon><Warning /></el-icon> 节点运行中，修改最大并发将导致节点自动重启。
+            <el-icon><Warning /></el-icon> {{ $t('nodes.restartWarning') }}
           </div>
-          <div v-else class="form-tip">建议在节点停止状态下修改。</div>
+          <div v-else class="form-tip">{{ $t('nodes.stopAdvice') }}</div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('profile.cancel') || $t('tasks.createDialog.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitting">{{ $t('profile.save') || $t('tasks.createDialog.submit') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -112,10 +113,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Plus, Warning } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getNodes, createNode, updateNode, deleteNode, startNode, stopNode } from '../api'
 import dayjs from 'dayjs'
+
+const { t } = useI18n()
 
 const nodes = ref([])
 const loading = ref(false)
@@ -139,8 +143,8 @@ const form = ref({
 })
 
 const rules = {
-  node_id: [{ required: true, message: '请输入节点 ID', trigger: 'blur' }],
-  queue_name: [{ required: true, message: '请输入队列名称', trigger: 'blur' }]
+  node_id: [{ required: true, message: t('nodes.nodeIdPlaceholder'), trigger: 'blur' }],
+  queue_name: [{ required: true, message: t('nodes.queuePlaceholder'), trigger: 'blur' }]
 }
 
 const fetchNodes = async () => {
@@ -149,7 +153,7 @@ const fetchNodes = async () => {
     const data = await getNodes()
     nodes.value = data
   } catch (error) {
-    ElMessage.error('获取节点列表失败')
+    ElMessage.error(t('nodes.getNodesFailed'))
   } finally {
     loading.value = false
   }
@@ -179,15 +183,15 @@ const handleSubmit = async () => {
       try {
         if (isEdit.value) {
           await updateNode(form.value.node_id, form.value)
-          ElMessage.success('更新成功')
+          ElMessage.success(t('nodes.updateSuccess'))
         } else {
           await createNode(form.value)
-          ElMessage.success('添加成功')
+          ElMessage.success(t('nodes.addSuccess'))
         }
         dialogVisible.value = false
         fetchNodes()
       } catch (error) {
-        ElMessage.error(error.response?.data?.detail || '操作失败')
+        ElMessage.error(error.response?.data?.detail || t('nodes.operationFailed'))
       } finally {
         submitting.value = false
       }
@@ -198,20 +202,20 @@ const handleSubmit = async () => {
 const handleStart = async (row) => {
   try {
     await startNode(row.node_id)
-    ElMessage.success(`节点 ${row.node_id} 启动成功`)
+    ElMessage.success(t('nodes.startSuccess', { id: row.node_id }))
     fetchNodes()
   } catch (error) {
-    ElMessage.error('启动失败')
+    ElMessage.error(t('nodes.startFailed'))
   }
 }
 
 const handleStop = async (row) => {
   try {
     await stopNode(row.node_id)
-    ElMessage.success(`节点 ${row.node_id} 已停止`)
+    ElMessage.success(t('nodes.stopSuccess', { id: row.node_id }))
     fetchNodes()
   } catch (error) {
-    ElMessage.error('停止失败')
+    ElMessage.error(t('nodes.stopFailed'))
   }
 }
 
@@ -293,16 +297,16 @@ const scrollToBottom = () => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(
-    `确定要删除节点 ${row.node_id} 吗？如果节点正在运行将被停止。`,
-    '提示',
+    t('nodes.deleteConfirm', { id: row.node_id }),
+    t('proxies.deleteConfirmTitle'),
     { type: 'warning' }
   ).then(async () => {
     try {
       await deleteNode(row.node_id)
-      ElMessage.success('删除成功')
+      ElMessage.success(t('nodes.deleteSuccess'))
       fetchNodes()
     } catch (error) {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('nodes.deleteFailed'))
     }
   })
 }

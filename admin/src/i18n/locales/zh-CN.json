@@ -1,4 +1,11 @@
 {
+    "common": {
+        "confirm": "确定",
+        "cancel": "取消",
+        "tip": "提示",
+        "save": "保存",
+        "delete": "删除"
+    },
     "menu": {
         "home": "首页",
         "tasks": "任务管理",
@@ -18,11 +25,6 @@
         "logout": "退出登录",
         "profile": "个人设置"
     },
-    "stats": {
-        "today": "今日任务统计",
-        "success": "成功",
-        "failed": "失败"
-    },
     "profile": {
         "title": "个人设置",
         "username": "用户名",
@@ -32,49 +34,572 @@
         "saveSuccess": "保存成功"
     },
     "home": {
-        "subtitle": "高性能、分布式的 Playwright 浏览器自动化集群",
+        "subtitle": "企业级分布式浏览器自动化集群，专为大规模数据采集与自动化测试而生。",
         "getStarted": "立即开始",
         "viewDocs": "查看文档",
-        "featuresTitle": "核心特性",
-        "featuresSubtitle": "为现代 Web 采集与自动化而生",
+        "featuresTitle": "强大功能，助您高效采集",
+        "featuresSubtitle": "集成了多种先进技术，轻松应对复杂的 Web 自动化场景",
         "archTitle": "系统架构",
-        "archSubtitle": "稳定、可靠、可扩展的分布式架构",
+        "archSubtitle": "高可用、可扩展的分布式架构设计",
         "features": {
             "cluster": "分布式集群",
-            "clusterDesc": "支持多节点水平扩展，轻松应对高并发抓取需求。",
-            "stealth": "隐身渲染",
-            "stealthDesc": "内置 Stealth 插件，有效绕过反爬虫检测与人机验证。",
-            "cache": "高效缓存",
-            "cacheDesc": "基于 Redis 的结果缓存机制，大幅降低重复抓取成本。",
-            "interceptor": "API 拦截",
-            "interceptorDesc": "支持在页面渲染过程中拦截并提取特定接口的数据。",
-            "monitor": "多维监控",
-            "monitorDesc": "实时统计成功率、加载时长、节点状态等核心指标。",
-            "optimize": "资源优化",
-            "optimizeDesc": "按需拦截图片、媒体资源，显著提升渲染速度。"
+            "clusterDesc": "支持横向扩展 Worker 节点，轻松应对百万级任务量。",
+            "stealth": "深度混淆隐身",
+            "stealthDesc": "内置指纹混淆与反检测，完美规避各类反爬虫机制。",
+            "cache": "智能结果缓存",
+            "cacheDesc": "Redis/MongoDB 双重缓存，毫秒级响应重复抓取请求。",
+            "interceptor": "动态代理池",
+            "interceptorDesc": "支持 SOCKS5/HTTP 代理，自动拨测与故障自动切换。",
+            "monitor": "全方位监控",
+            "monitorDesc": "可视化仪表盘，实时掌握节点负载、成功率与响应时延。",
+            "optimize": "极致性能优化",
+            "optimizeDesc": "异步非阻塞架构，资源占用低，多任务并发性能强劲。"
+        },
+        "arch": {
+            "gateway": {
+                "title": "统一网关",
+                "desc": "基于 FastAPI 的高性能异步接口，提供鉴权、流控与任务调度入口。"
+            },
+            "queue": {
+                "title": "任务队列",
+                "desc": "RabbitMQ 实现任务削峰填谷，确保高并发下的系统稳定性与可靠投递。"
+            },
+            "cluster": {
+                "title": "浏览器集群",
+                "desc": "分布式 Playwright 节点，支持隐身模式、指纹混淆与动态扩縮容。"
+            },
+            "persistence": {
+                "title": "数据持久化",
+                "desc": "MongoDB 存储完整任务链路，Redis 提供毫秒级结果缓存与状态同步。"
+            }
         }
     },
     "tasks": {
         "title": "任务管理",
+        "subtitle": "实时监控和管理自动化抓取任务",
         "createTask": "新建任务",
-        "refresh": "刷新",
         "batchDelete": "批量删除",
-        "searchPlaceholder": "输入任务 ID 或 URL 搜索",
+        "refresh": "刷新",
+        "searchPlaceholder": "搜索任务 ID 或 URL...",
+        "deleteSuccess": "任务已删除",
         "status": {
             "all": "全部状态",
             "pending": "等待中",
-            "running": "运行中",
-            "success": "成功",
-            "failed": "失败"
+            "running": "处理中",
+            "success": "已成功",
+            "failed": "已失败"
         },
         "columns": {
             "id": "任务 ID",
             "target": "目标 URL",
             "status": "状态",
-            "duration": "时长",
-            "nodes": "执行节点",
+            "stats": "执行统计",
+            "timeline": "时间轨迹",
+            "actions": "操作",
+            "actualUrl": "实际访问"
+        },
+        "stats": {
+            "duration": "耗时:",
+            "cache": "缓存:",
+            "node": "节点:",
+            "cacheHit": "命中",
+            "cacheSkip": "跳过",
+            "created": "创建:",
+            "completed": "完成:",
+            "totalDuration": "总执行耗时",
+            "loadDuration": "页面加载耗时"
+        },
+        "search": {
+            "keyword": "关键词搜索",
+            "query": "查询",
+            "reset": "重置"
+        },
+        "createDialog": {
+            "title": "新建抓取任务",
+            "targetUrl": "目标 URL",
+            "urlPlaceholder": "请输入以 http(s):// 开头的完整 URL",
+            "priority": "任务优先级",
+            "cache": "数据缓存",
+            "cacheEnabled": "允许使用缓存数据",
+            "cacheDisabled": "强制重新抓取",
+            "advanced": "高级选项",
+            "waitFor": "等待条件",
+            "emulation": "环境模拟",
+            "stealth": "反检测",
+            "screenshot": "自动截图",
+            "fullPage": "全屏截图",
+            "noImage": "无图模式",
+            "cancel": "取消",
+            "submit": "立即开始"
+        }
+    },
+    "nodes": {
+        "title": "节点管理",
+        "subtitle": "管理分布式浏览器节点及其运行状态",
+        "addNode": "添加节点",
+        "editNode": "编辑节点",
+        "nodeId": "节点 ID",
+        "queueName": "任务队列",
+        "maxConcurrent": "最大并发",
+        "taskCount": "任务总数",
+        "status": "运行状态",
+        "lastSeen": "最后在线",
+        "actions": "操作",
+        "start": "启动",
+        "stop": "停止",
+        "edit": "编辑",
+        "logs": "日志",
+        "delete": "删除",
+        "logTitle": "节点日志",
+        "autoScroll": "自动滚动",
+        "reconnect": "重新连接",
+        "nodeIdPlaceholder": "例如: worker-01",
+        "queuePlaceholder": "task_queue",
+        "restartWarning": "节点运行中，修改最大并发将导致节点自动重启。",
+        "stopAdvice": "建议在节点停止状态下修改。",
+        "getNodesFailed": "获取节点列表失败",
+        "updateSuccess": "更新成功",
+        "addSuccess": "添加成功",
+        "operationFailed": "操作失败",
+        "startSuccess": "节点 {id} 启动成功",
+        "startFailed": "启动失败",
+        "stopSuccess": "节点 {id} 已停止",
+        "stopFailed": "停止失败",
+        "deleteConfirm": "确定要删除节点 {id} 吗？如果节点正在运行将被停止。",
+        "deleteSuccess": "删除成功",
+        "deleteFailed": "删除失败",
+        "noLogs": "暂无日志或正在加载..."
+    },
+    "users": {
+        "title": "用户管理",
+        "subtitle": "管理系统访问账号及其权限",
+        "addUser": "新增用户",
+        "editUser": "编辑用户",
+        "username": "用户名",
+        "password": "密码",
+        "role": "角色",
+        "createdAt": "创建时间",
+        "updatedAt": "更新时间",
+        "actions": "操作",
+        "edit": "编辑",
+        "delete": "删除",
+        "admin": "管理员",
+        "user": "普通用户",
+        "passwordPlaceholder": "请输入密码",
+        "usernamePlaceholder": "请输入用户名",
+        "rolePlaceholder": "请选择角色",
+        "passwordTip": "留空则不修改密码",
+        "getUsersFailed": "获取用户列表失败",
+        "deleteConfirm": "确定要删除用户 \"{username}\" 吗？",
+        "deleteSuccess": "删除成功",
+        "deleteFailed": "删除失败",
+        "updateSuccess": "更新成功",
+        "createSuccess": "创建成功",
+        "operationFailed": "操作失败"
+    },
+    "proxies": {
+        "title": "代理池管理",
+        "subtitle": "管理代理服务器集群，支持账号密码认证与连接拨测",
+        "searchPlaceholder": "搜索名称或服务器...",
+        "addProxy": "新增代理",
+        "editProxy": "编辑代理配置",
+        "refresh": "刷新",
+        "name": "名称/标识",
+        "server": "服务器地址",
+        "location": "国家/城市",
+        "sessionType": "会话方式",
+        "isEnabled": "可用",
+        "actions": "操作",
+        "test": "连接测试",
+        "edit": "编辑",
+        "delete": "删除",
+        "unknownLocation": "未知",
+        "stickyIP": "粘性 IP",
+        "randomIP": "随机 IP",
+        "protocol": "协议",
+        "username": "用户名 (可选)",
+        "password": "密码 (可选)",
+        "authPlaceholder": "为空则不使用认证",
+        "passwordHint": "留空则不更新",
+        "locationPlaceholder": "如：美国 加利福尼亚",
+        "namePlaceholder": "如：美国-洛杉矶-01",
+        "save": "保存",
+        "create": "创建",
+        "getProxiesFailed": "获取代理列表失败",
+        "fillRequired": "请填写必选字段（名称和服务器地址）",
+        "updateSuccess": "代理配置已更新",
+        "createSuccess": "代理配置已创建",
+        "toggleSuccess": "{name} 已{status}",
+        "enabled": "启用",
+        "disabled": "禁用",
+        "toggleFailed": "更新状态失败",
+        "deleteConfirm": "确定要删除代理 \"{name}\" 吗？此操作不可恢复。",
+        "deleteConfirmTitle": "删除确认",
+        "deleteBtn": "删除",
+        "testSuccess": "测试通过！响应延迟: {latency}s, 状态码: {code}",
+        "testFailed": "测试失败: {message}",
+        "testCallFailed": "发起的测试请求失败"
+    },
+    "llmModels": {
+        "title": "模型设置",
+        "subtitle": "管理大语言模型配置，用于 Agent 智能提取",
+        "addModel": "新增模型",
+        "refresh": "刷新",
+        "columns": {
+            "name": "模型名称",
+            "id": "模型标识",
+            "baseUrl": "API 地址",
+            "vision": "视觉",
+            "stream": "流式",
+            "retries": "最大重试",
+            "status": "状态",
+            "actions": "操作"
+        },
+        "status": {
+            "enabled": "已启用",
+            "disabled": "已禁用"
+        },
+        "vision": {
+            "yes": "支持",
+            "no": "否"
+        },
+        "stream": {
+            "yes": "支持",
+            "no": "否"
+        },
+        "isDefault": "默认",
+        "tooltips": {
+            "test": "测试连接",
+            "edit": "编辑",
+            "delete": "删除"
+        },
+        "dialog": {
+            "editTitle": "编辑模型配置",
+            "createTitle": "新增模型配置",
+            "name": "模型名称",
+            "namePlaceholder": "如：GPT-4o",
+            "provider": "服务商",
+            "id": "模型标识",
+            "idPlaceholder": "如：gpt-4o, claude-3-opus-20240229",
+            "baseUrl": "API 地址",
+            "apiKey": "API Key",
+            "apiKeyPlaceholder": "留空则不更新",
+            "temperature": "Temperature",
+            "maxTokens": "Max Tokens",
+            "retries": "最大重试次数",
+            "vision": "支持视觉",
+            "stream": "支持流式",
+            "isDefault": "设为默认",
+            "isEnabled": "启用状态",
+            "save": "保存",
+            "create": "创建"
+        },
+        "messages": {
+            "loadFailed": "获取模型列表失败: ",
+            "fillRequired": "请填写必填项",
+            "updateSuccess": "模型配置已更新",
+            "createSuccess": "模型配置已创建",
+            "operationFailed": "操作失败: ",
+            "deleteConfirm": "确定要删除模型 \"{name}\" 吗？此操作不可恢复。",
+            "deleteTitle": "删除确认",
+            "deleteSuccess": "删除成功",
+            "deleteFailed": "删除失败: ",
+            "testSuccess": "连接成功！响应耗时: {latency}ms",
+            "testFailed": "连接失败: {message}",
+            "testCallFailed": "测试失败: "
+        }
+    },
+    "promptTemplates": {
+        "title": "提示词模板",
+        "addTemplate": "新建模板",
+        "searchPlaceholder": "搜索模板名称或内容...",
+        "refresh": "刷新",
+        "columns": {
+            "name": "模板名称",
+            "preview": "内容预览",
+            "description": "描述",
+            "creator": "创建者",
+            "updatedAt": "更新时间",
+            "actions": "操作"
+        },
+        "actions": {
+            "edit": "编辑",
+            "delete": "删除"
+        },
+        "dialog": {
+            "editTitle": "编辑模板",
+            "createTitle": "新建模板",
+            "name": "名称",
+            "namePlaceholder": "请输入模板名称",
+            "description": "描述",
+            "descriptionPlaceholder": "可选：简要描述模板用途",
+            "systemRole": "系统角色",
+            "systemRoleTip": "用于定义 AI Agent 的系统角色或预置指令 (role: system)",
+            "systemRolePlaceholder": "可选：请输入系统角色内容 (System Prompt)",
+            "extractRequest": "提取要求",
+            "extractRequestTip": "具体的数据提取要求和格式说明 (role: user)",
+            "extractRequestPlaceholder": "请输入提取要求的提示词内容",
+            "save": "保存"
+        },
+        "messages": {
+            "nameRequired": "请输入模板名称",
+            "contentRequired": "请输入提示词内容",
+            "loadFailed": "加载模板失败",
+            "updateSuccess": "更新成功",
+            "createSuccess": "创建成功",
+            "updateFailed": "更新失败: ",
+            "createFailed": "创建失败: ",
+            "deleteConfirm": "确定要删除模板 \"{name}\" 吗？此操作不可恢复。",
+            "deleteTitle": "删除确认",
+            "deleteSuccess": "删除成功",
+            "deleteFailed": "删除失败: "
+        }
+    },
+    "skills": {
+        "title": "技能管理",
+        "subtitle": "管理和扩展浏览器交互及提取技能",
+        "addSkill": "新增技能",
+        "refresh": "刷新",
+        "columns": {
+            "name": "技能名称",
+            "id": "标识符",
+            "type": "类型",
+            "attr": "属性",
+            "status": "状态",
+            "actions": "操作"
+        },
+        "types": {
+            "extraction": "数据提取",
+            "interaction": "交互操作"
+        },
+        "attrs": {
+            "builtin": "内置",
+            "custom": "自定义"
+        },
+        "actions": {
+            "edit": "编辑",
+            "delete": "删除"
+        },
+        "dialog": {
+            "editTitle": "编辑技能",
+            "createTitle": "新增技能",
+            "id": "名称 (标识符)",
+            "idPlaceholder": "例如: extract_prices",
+            "name": "显示名称",
+            "namePlaceholder": "例如: 提取价格",
+            "type": "技能类型",
+            "interaction": "交互操作 (Interaction)",
+            "extraction": "数据提取 (Extraction)",
+            "isEnabled": "启用状态",
+            "description": "描述",
+            "descriptionPlaceholder": "简要描述技能用途...",
+            "jsCode": "JavaScript 代码",
+            "jsPlaceholder": "// JavaScript 代码...\n// 如果是提取类型，最后必须 return 一个值\n// 示例：\n// return { title: document.title, url: window.location.href };",
+            "tip": "代码将在浏览器环境中执行，可以使用 `document`, `window` 等对象。如果是采集类技能，请确保最后使用 `return` 返回结果。",
+            "confirm": "确定"
+        },
+        "messages": {
+            "loadFailed": "加载技能列表失败",
+            "fillRequired": "请填写必填项",
+            "updateSuccess": "更新成功",
+            "createSuccess": "创建成功",
+            "saveFailed": "保存失败: ",
+            "toggleSuccess": "状态更新成功",
+            "toggleFailed": "更新状态失败",
+            "deleteConfirm": "确定删除该技能吗？",
+            "deleteConfirmTitle": "提示",
+            "deleteSuccess": "删除成功",
+            "deleteFailed": "删除失败"
+        }
+    },
+    "skillBundles": {
+        "title": "技能包管理",
+        "subtitle": "组合多个技能，为不同类型的页面定制抓取方案",
+        "addBundle": "新建技能包",
+        "refresh": "刷新",
+        "columns": {
+            "name": "技能包名称",
+            "description": "描述",
+            "steps": "包含步骤",
             "createdAt": "创建时间",
             "actions": "操作"
+        },
+        "stepsCount": "{n} 个步骤",
+        "actions": {
+            "edit": "编辑",
+            "delete": "删除"
+        },
+        "dialog": {
+            "editTitle": "编辑技能包",
+            "createTitle": "新建技能包",
+            "name": "技能包名称",
+            "namePlaceholder": "例如: 房产搜索结果提取包",
+            "description": "描述",
+            "descriptionPlaceholder": "简要描述该技能包的适用场景...",
+            "stepsConfig": "交互步骤配置",
+            "addStep": "添加步骤",
+            "stepIndex": "步骤 {n}",
+            "remove": "移除",
+            "actionType": "动作类型",
+            "wait": {
+                "title": "等待参数",
+                "duration": "等待耗时 (ms)"
+            },
+            "scroll": {
+                "title": "滚动参数",
+                "container": "容器选择器 (默认 window)",
+                "containerPlaceholder": "例如: .scroll-container",
+                "distance": "滚动距离 (px)"
+            },
+            "click": {
+                "title": "点击参数",
+                "target": "目标选择器",
+                "targetPlaceholder": "例如: #submit-btn"
+            },
+            "infiniteScroll": {
+                "title": "流式滚动参数",
+                "container": "容器选择器 (默认 window)",
+                "containerPlaceholder": "例如: .content",
+                "maxScrolls": "最大次数",
+                "delay": "延迟 (ms)"
+            },
+            "pagination": {
+                "title": "翻页参数",
+                "action": "翻页动作",
+                "next": "下一页",
+                "prev": "上一页",
+                "btnPlaceholder": "例如: .next-page-btn"
+            },
+            "zoom": {
+                "title": "缩放参数",
+                "container": "容器选择器",
+                "containerPlaceholder": "地图容器选择器",
+                "direction": "方向",
+                "in": "放大",
+                "out": "缩小",
+                "times": "次数"
+            },
+            "fill": {
+                "title": "填充参数",
+                "addField": "添加字段",
+                "fieldsCount": "{n} 个字段已配置"
+            },
+            "extractCoordinates": {
+                "noParams": "该技能无需额外参数"
+            },
+            "blockContainer": {
+                "title": "块状容器参数",
+                "placeholder": "例如: .card-item"
+            },
+            "excludeElements": {
+                "title": "排除元素参数",
+                "placeholder": "例如: .ad-banner; #footer; .popup"
+            },
+            "advanced": {
+                "json": "扩展参数 (JSON格式)"
+            },
+            "empty": "暂无步骤，点击上方“添加步骤”按钮开始配置",
+            "confirm": "确定保存"
+        },
+        "messages": {
+            "loadFailed": "加载技能包失败",
+            "jsonError": "步骤 {n} 的参数格式错误",
+            "promptPayload": "请输入字段选择器和内容 (格式: selector=value)",
+            "addFieldTitle": "添加表单字段",
+            "formatError": "格式错误，请使用 selector=value",
+            "nameRequired": "请输入技能包名称",
+            "updateSuccess": "更新成功",
+            "createSuccess": "创建成功",
+            "saveFailed": "保存失败",
+            "deleteConfirm": "确定删除该技能包吗？",
+            "deleteConfirmTitle": "提示",
+            "deleteSuccess": "删除成功",
+            "deleteFailed": "删除失败"
         }
+    },
+    "stats": {
+        "title": "统计中心",
+        "subtitle": "系统运行数据可视化分析",
+        "cards": {
+            "todayTotal": "今日任务总量",
+            "successRate": "成功处理",
+            "failedCount": "失败记录",
+            "avgDuration": "平均响应时间",
+            "trendTip": "较昨日"
+        },
+        "charts": {
+            "taskAnalysis": "任务处理分析",
+            "today": "今日",
+            "week": "近一周",
+            "legend": {
+                "success": "成功",
+                "failed": "失败",
+                "total": "总计"
+            }
+        },
+        "queue": {
+            "title": "实时队列状态",
+            "total": "当前排队总数",
+            "pending": "等待中",
+            "processing": "处理中",
+            "success": "已完成",
+            "failed": "已失败"
+        }
+    },
+    "configs": {
+        "title": "系统配置",
+        "subtitle": "管理系统运行参数及默认抓取设置",
+        "systemLogs": "系统日志",
+        "restart": "强制重启",
+        "addConfig": "新增配置",
+        "refresh": "刷新",
+        "restartNeeded": "配置已更改",
+        "restartDesc": "部分配置更改需要重启系统才能生效。请点击右上角的“强制重启”按钮。",
+        "restartNow": "立即重启",
+        "searchPlaceholder": "搜索配置键、值或说明...",
+        "key": "配置键 (Key)",
+        "value": "配置值 (Value)",
+        "description": "说明",
+        "lastUpdated": "最后更新",
+        "actions": "操作",
+        "systemDefault": "系统默认",
+        "configured": "已配置",
+        "defaultHint": "当前使用系统默认值，点击编辑可自定义",
+        "noDescription": "暂无说明",
+        "edit": "编辑",
+        "delete": "删除",
+        "noConfigs": "暂无配置项",
+        "addConfigTitle": "新增配置项",
+        "editConfigTitle": "编辑配置项",
+        "keyPlaceholder": "例如: browser.max_tabs",
+        "keyTip": "建议使用小写字母和点号分隔，如 browser.timeout",
+        "valuePlaceholder": "请输入配置内容，支持 JSON 字符串",
+        "descPlaceholder": "简单描述该配置的用途",
+        "save": "保存配置",
+        "editKeyTip": "配置键不可修改",
+        "editValuePlaceholder": "请输入新配置内容",
+        "editDescPlaceholder": "更新配置说明",
+        "submit": "提交更新",
+        "mainLogs": "系统主日志",
+        "autoScroll": "自动滚动",
+        "clearScreen": "清空屏幕",
+        "reconnect": "重新连接",
+        "loadingLogs": "正在加载日志...",
+        "getConfigsFailed": "获取配置信息失败",
+        "restartConfirm": "确定要强制重启后端系统吗？重启期间服务将暂时不可用。",
+        "restartConfirmTitle": "强制重启确认",
+        "restartSent": "重启指令已发送，请稍后刷新页面",
+        "restartFailed": "重启请求失败",
+        "fillRequired": "请填写必填项",
+        "createSuccess": "配置已创建",
+        "createFailed": "创建配置失败",
+        "valueRequired": "配置值不能为空",
+        "updateSuccess": "配置已更新",
+        "updateFailed": "更新配置失败",
+        "deleteConfirm": "确定要永久删除配置项 \"{key}\" 吗？此操作不可恢复。",
+        "deleteConfirmTitle": "安全警告",
+        "deleteSuccess": "配置已删除",
+        "deleteFailed": "删除配置失败",
+        "copySuccess": "配置值已复制到剪贴板"
     }
 }

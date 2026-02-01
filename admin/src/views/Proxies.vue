@@ -4,13 +4,13 @@
       <template #header>
         <div class="card-header">
           <div class="header-left">
-            <span class="title">代理池管理</span>
-            <span class="subtitle">管理代理服务器集群，支持账号密码认证与连接拨测</span>
+            <span class="title">{{ $t('proxies.title') }}</span>
+            <span class="subtitle">{{ $t('proxies.subtitle') }}</span>
           </div>
           <div class="header-actions">
             <el-input
               v-model="searchQuery"
-              placeholder="搜索名称、服务器或位置..."
+              :placeholder="$t('proxies.searchPlaceholder')"
               clearable
               prefix-icon="Search"
               style="width: 250px"
@@ -18,10 +18,10 @@
               @keyup.enter="loadProxies"
             />
             <el-button type="primary" @click="showCreateDialog">
-              <el-icon><Plus /></el-icon> 新增代理
+              <el-icon><Plus /></el-icon> {{ $t('proxies.addProxy') }}
             </el-button>
             <el-button @click="loadProxies" :loading="loading">
-              <el-icon><Refresh /></el-icon> 刷新
+              <el-icon><Refresh /></el-icon> {{ $t('proxies.refresh') }}
             </el-button>
           </div>
         </div>
@@ -35,7 +35,7 @@
         border 
         stripe
       >
-        <el-table-column prop="name" label="名称/标识" min-width="160">
+        <el-table-column prop="name" :label="$t('proxies.name')" min-width="160">
           <template #default="{ row }">
             <div class="proxy-name-cell">
               <el-tag :type="row.protocol === 'socks5' ? 'warning' : 'success'" size="small" effect="plain">
@@ -46,43 +46,43 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="server" label="服务器地址" min-width="200">
+        <el-table-column prop="server" :label="$t('proxies.server')" min-width="200">
           <template #default="{ row }">
             <code class="server-code">{{ row.server }}</code>
           </template>
         </el-table-column>
 
-        <el-table-column prop="location" label="国家/城市" width="150" align="center">
+        <el-table-column prop="location" :label="$t('proxies.location')" width="150" align="center">
           <template #default="{ row }">
             <span v-if="row.location">{{ row.location }}</span>
-            <span v-else style="color: #909399; font-style: italic;">未知</span>
+            <span v-else style="color: #909399; font-style: italic;">{{ $t('proxies.unknownLocation') }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column prop="session_type" label="会话方式" width="120" align="center">
+        <el-table-column prop="session_type" :label="$t('proxies.sessionType')" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="row.session_type === 'sticky' ? 'primary' : 'info'" size="small" effect="light">
-              {{ row.session_type === 'sticky' ? '粘性 IP' : '随机 IP' }}
+              {{ row.session_type === 'sticky' ? $t('proxies.stickyIP') : $t('proxies.randomIP') }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column prop="is_enabled" label="可用" width="80" align="center">
+        <el-table-column prop="is_enabled" :label="$t('proxies.isEnabled')" width="80" align="center">
           <template #default="{ row }">
             <el-switch v-model="row.is_enabled" @change="(val) => handleToggleStatus(row, val)" />
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" fixed="right" align="center">
+        <el-table-column :label="$t('proxies.actions')" width="180" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="连接测试" placement="top">
+              <el-tooltip :content="$t('proxies.test')" placement="top">
                 <el-button circle size="small" type="success" :icon="Connection" @click="testProxy(row)" :loading="testingId === row._id" />
               </el-tooltip>
-              <el-tooltip content="编辑" placement="top">
+              <el-tooltip :content="$t('proxies.edit')" placement="top">
                 <el-button circle size="small" type="primary" :icon="Edit" @click="showEditDialog(row)" />
               </el-tooltip>
-              <el-tooltip content="删除" placement="top">
+              <el-tooltip :content="$t('proxies.delete')" placement="top">
                 <el-button circle size="small" type="danger" :icon="Delete" @click="confirmDelete(row)" />
               </el-tooltip>
             </div>
@@ -106,7 +106,7 @@
     <!-- 新增/编辑对话框 -->
     <el-dialog 
       v-model="showDialog" 
-      :title="isEdit ? '编辑代理配置' : '新增代理配置'" 
+      :title="isEdit ? $t('proxies.editProxy') : $t('proxies.addProxy')" 
       width="600px" 
       destroy-on-close
       class="bento-dialog"
@@ -114,12 +114,12 @@
       <el-form :model="form" label-width="100px" label-position="top">
         <el-row :gutter="20">
           <el-col :span="16">
-            <el-form-item label="名称" required>
-              <el-input v-model="form.name" placeholder="如：美国-洛杉矶-01" clearable />
+            <el-form-item :label="$t('proxies.name')" required>
+              <el-input v-model="form.name" :placeholder="$t('proxies.namePlaceholder')" clearable />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="协议" required>
+            <el-form-item :label="$t('proxies.protocol')" required>
               <el-select v-model="form.protocol" style="width: 100%">
                 <el-option label="HTTP" value="http" />
                 <el-option label="SOCKS5" value="socks5" />
@@ -128,7 +128,7 @@
           </el-col>
         </el-row>
 
-        <el-form-item label="服务器地址" required>
+        <el-form-item :label="$t('proxies.server')" required>
           <el-input v-model="form.server" placeholder="us.arxlabs.io:3010" clearable>
             <template #prefix><el-icon><Link /></el-icon></template>
           </el-input>
@@ -136,15 +136,15 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="用户名 (可选)">
-              <el-input v-model="form.username" placeholder="为空则不使用认证" clearable>
+            <el-form-item :label="$t('proxies.username')">
+              <el-input v-model="form.username" :placeholder="$t('proxies.authPlaceholder')" clearable>
                 <template #prefix><el-icon><User /></el-icon></template>
               </el-input>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="密码 (可选)">
-              <el-input v-model="form.password" type="password" placeholder="留空则不更新" show-password clearable>
+            <el-form-item :label="$t('proxies.password')">
+              <el-input v-model="form.password" type="password" :placeholder="$t('proxies.passwordPlaceholder')" show-password clearable>
                 <template #prefix><el-icon><Lock /></el-icon></template>
               </el-input>
             </el-form-item>
@@ -153,30 +153,30 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="国家/城市 (可选)">
-              <el-input v-model="form.location" placeholder="如：美国 加利福尼亚" clearable />
+            <el-form-item :label="$t('proxies.location')">
+              <el-input v-model="form.location" :placeholder="$t('proxies.locationPlaceholder')" clearable />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="会话方式">
+            <el-form-item :label="$t('proxies.sessionType')">
               <el-radio-group v-model="form.session_type" size="default">
-                <el-radio-button label="random">随机 IP</el-radio-button>
-                <el-radio-button label="sticky">粘性 IP</el-radio-button>
+                <el-radio-button label="random">{{ $t('proxies.randomIP') }}</el-radio-button>
+                <el-radio-button label="sticky">{{ $t('proxies.stickyIP') }}</el-radio-button>
               </el-radio-group>
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-form-item label="启用状态">
+        <el-form-item :label="$t('proxies.isEnabled')">
           <el-switch v-model="form.is_enabled" />
         </el-form-item>
       </el-form>
 
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showDialog = false" round>取消</el-button>
+          <el-button @click="showDialog = false" round>{{ $t('tasks.createDialog.cancel') }}</el-button>
           <el-button type="primary" @click="submitForm" :loading="submitting" round>
-            {{ isEdit ? '保存' : '创建' }}
+            {{ isEdit ? $t('proxies.save') : $t('proxies.create') }}
           </el-button>
         </div>
       </template>
@@ -186,9 +186,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete, Connection, Link, Lock, User, Search } from '@element-plus/icons-vue'
 import { getProxies, createProxy, updateProxy, deleteProxy, testStoredProxy } from '../api'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -228,7 +231,7 @@ const loadProxies = async () => {
     proxies.value = data.items
     total.value = data.total
   } catch (error) {
-    ElMessage.error('获取代理列表失败: ' + (error.response?.data?.detail || error.message))
+    ElMessage.error(t('proxies.getProxiesFailed') + (error.response?.data?.detail || error.message))
   } finally {
     loading.value = false
   }
@@ -259,7 +262,7 @@ const showEditDialog = (row) => {
 
 const submitForm = async () => {
   if (!form.value.name || !form.value.server) {
-    ElMessage.warning('请填写必选字段（名称和服务器地址）')
+    ElMessage.warning(t('proxies.fillRequired'))
     return
   }
 
@@ -272,16 +275,16 @@ const submitForm = async () => {
 
     if (isEdit.value) {
       await updateProxy(editId.value, submitData)
-      ElMessage.success('代理配置已更新')
+      ElMessage.success(t('proxies.updateSuccess'))
     } else {
       await createProxy(submitData)
-      ElMessage.success('代理配置已创建')
+      ElMessage.success(t('proxies.createSuccess'))
     }
     
     showDialog.value = false
     loadProxies()
   } catch (error) {
-    ElMessage.error('操作失败: ' + (error.response?.data?.detail || error.message))
+    ElMessage.error(t('proxies.operationFailed') + (error.response?.data?.detail || error.message))
   } finally {
     submitting.value = false
   }
@@ -290,30 +293,30 @@ const submitForm = async () => {
 const handleToggleStatus = async (row, val) => {
   try {
     await updateProxy(row._id, { is_enabled: val })
-    ElMessage.success(`${row.name} 已${val ? '启用' : '禁用'}`)
+    ElMessage.success(t('proxies.toggleSuccess', { name: row.name, status: val ? t('proxies.enabled') : t('proxies.disabled') }))
   } catch (error) {
     row.is_enabled = !val // 恢复状态
-    ElMessage.error('更新状态失败')
+    ElMessage.error(t('proxies.toggleFailed'))
   }
 }
 
 const confirmDelete = (row) => {
   ElMessageBox.confirm(
-    `确定要删除代理 "${row.name}" 吗？此操作不可恢复。`,
-    '删除确认',
+    t('proxies.deleteConfirm', { name: row.name }),
+    t('proxies.deleteConfirmTitle'),
     {
-      confirmButtonText: '删除按钮',
-      cancelButtonText: '取消',
+      confirmButtonText: t('proxies.deleteBtn'),
+      cancelButtonText: t('tasks.createDialog.cancel'),
       type: 'error',
       icon: Delete
     }
   ).then(async () => {
     try {
       await deleteProxy(row._id)
-      ElMessage.success('删除成功')
+      ElMessage.success(t('proxies.deleteSuccess'))
       loadProxies()
     } catch (error) {
-      ElMessage.error('删除失败: ' + (error.response?.data?.detail || error.message))
+      ElMessage.error(t('proxies.deleteFailed') + (error.response?.data?.detail || error.message))
     }
   }).catch(() => {})
 }
@@ -323,12 +326,12 @@ const testProxy = async (row) => {
   try {
     const result = await testStoredProxy(row._id)
     if (result.status === 'success') {
-      ElMessage.success(`测试通过！响应延迟: ${result.latency}s, 状态码: ${result.status_code}`)
+      ElMessage.success(t('proxies.testSuccess', { latency: result.latency, code: result.status_code }))
     } else {
-      ElMessage.error(`测试失败: ${result.message}`)
+      ElMessage.error(t('proxies.testFailed', { message: result.message }))
     }
   } catch (error) {
-    ElMessage.error('测试接口调用失败')
+    ElMessage.error(t('proxies.testCallFailed'))
   } finally {
     testingId.value = null
   }

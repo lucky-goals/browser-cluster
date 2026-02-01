@@ -3,9 +3,9 @@
     <el-card class="templates-card">
       <template #header>
         <div class="card-header">
-          <span class="title">提示词模板</span>
+          <span class="title">{{ $t('promptTemplates.title') }}</span>
           <el-button type="primary" @click="showCreateDialog">
-            <el-icon><Plus /></el-icon> 新建模板
+            <el-icon><Plus /></el-icon> {{ $t('promptTemplates.addTemplate') }}
           </el-button>
         </div>
       </template>
@@ -14,49 +14,49 @@
       <div class="search-bar">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索模板名称或内容..."
+          :placeholder="$t('promptTemplates.searchPlaceholder')"
           clearable
           @input="handleSearch"
           style="width: 300px;"
         >
           <template #prefix><el-icon><Search /></el-icon></template>
         </el-input>
-        <el-button @click="loadTemplates" :icon="Refresh">刷新</el-button>
+        <el-button @click="loadTemplates" :icon="Refresh">{{ $t('promptTemplates.refresh') }}</el-button>
       </div>
 
       <!-- 模板列表 -->
       <el-table :data="templates" v-loading="loading" stripe>
-        <el-table-column prop="name" label="模板名称" min-width="150">
+        <el-table-column prop="name" :label="$t('promptTemplates.columns.name')" min-width="150">
           <template #default="{ row }">
             <span class="template-name">{{ row.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="content" label="内容预览" min-width="300">
+        <el-table-column prop="content" :label="$t('promptTemplates.columns.preview')" min-width="300">
           <template #default="{ row }">
             <el-tooltip :content="row.content" placement="top" :show-after="500">
               <span class="content-preview">{{ row.content.substring(0, 80) }}{{ row.content.length > 80 ? '...' : '' }}</span>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" width="180">
+        <el-table-column prop="description" :label="$t('promptTemplates.columns.description')" width="180">
           <template #default="{ row }">
             <span class="description-text">{{ row.description || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="username" label="创建者" width="100" align="center">
+        <el-table-column prop="username" :label="$t('promptTemplates.columns.creator')" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small" effect="plain">{{ row.username }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="160" align="center">
+        <el-table-column prop="updated_at" :label="$t('promptTemplates.columns.updatedAt')" width="160" align="center">
           <template #default="{ row }">
             {{ formatDate(row.updated_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" align="center" fixed="right">
+        <el-table-column :label="$t('promptTemplates.columns.actions')" width="180" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="showEditDialog(row)" :icon="Edit">编辑</el-button>
-            <el-button size="small" type="danger" @click="confirmDelete(row)" :icon="Delete">删除</el-button>
+            <el-button size="small" type="primary" @click="showEditDialog(row)" :icon="Edit">{{ $t('promptTemplates.actions.edit') }}</el-button>
+            <el-button size="small" type="danger" @click="confirmDelete(row)" :icon="Delete">{{ $t('promptTemplates.actions.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -76,19 +76,19 @@
     </el-card>
 
     <!-- 新建/编辑对话框 -->
-    <el-dialog v-model="showDialog" :title="isEdit ? '编辑模板' : '新建模板'" width="1000px" top="15vh" destroy-on-close class="template-dialog">
-      <el-form :model="form" label-width="80px" :rules="formRules" ref="formRef">
-        <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入模板名称" />
+    <el-dialog v-model="showDialog" :title="isEdit ? $t('promptTemplates.dialog.editTitle') : $t('promptTemplates.dialog.createTitle')" width="1000px" top="15vh" destroy-on-close class="template-dialog">
+      <el-form :model="form" label-width="100px" :rules="formRules" ref="formRef">
+        <el-form-item :label="$t('promptTemplates.dialog.name')" prop="name">
+          <el-input v-model="form.name" :placeholder="$t('promptTemplates.dialog.namePlaceholder')" />
         </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="form.description" placeholder="可选：简要描述模板用途" />
+        <el-form-item :label="$t('promptTemplates.dialog.description')">
+          <el-input v-model="form.description" :placeholder="$t('promptTemplates.dialog.descriptionPlaceholder')" />
         </el-form-item>
-        <el-form-item label="系统角色">
+        <el-form-item :label="$t('promptTemplates.dialog.systemRole')">
           <template #label>
             <div style="display: flex; align-items: center; gap: 4px;">
-              <span>系统角色</span>
-              <el-tooltip content="用于定义 AI Agent 的系统角色或预置指令 (role: system)" placement="top">
+              <span>{{ $t('promptTemplates.dialog.systemRole') }}</span>
+              <el-tooltip :content="$t('promptTemplates.dialog.systemRoleTip')" placement="top">
                 <el-icon><InfoFilled /></el-icon>
               </el-tooltip>
             </div>
@@ -97,14 +97,14 @@
             v-model="form.system_content"
             type="textarea"
             :rows="6"
-            placeholder="可选：请输入系统角色内容 (System Prompt)"
+            :placeholder="$t('promptTemplates.dialog.systemRolePlaceholder')"
           />
         </el-form-item>
-        <el-form-item label="提取要求" prop="content">
+        <el-form-item :label="$t('promptTemplates.dialog.extractRequest')" prop="content">
           <template #label>
             <div style="display: flex; align-items: center; gap: 4px;">
-              <span>提取要求</span>
-              <el-tooltip content="具体的数据提取要求和格式说明 (role: user)" placement="top">
+              <span>{{ $t('promptTemplates.dialog.extractRequest') }}</span>
+              <el-tooltip :content="$t('promptTemplates.dialog.extractRequestTip')" placement="top">
                 <el-icon><InfoFilled /></el-icon>
               </el-tooltip>
             </div>
@@ -113,24 +113,27 @@
             v-model="form.content"
             type="textarea"
             :rows="12"
-            placeholder="请输入提取要求的提示词内容"
+            :placeholder="$t('promptTemplates.dialog.extractRequestPlaceholder')"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitting">保存</el-button>
+        <el-button @click="showDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">{{ $t('promptTemplates.dialog.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Edit, Delete, InfoFilled } from '@element-plus/icons-vue'
 import { getPromptTemplates, createPromptTemplate, updatePromptTemplate, deletePromptTemplate } from '../api'
 import dayjs from 'dayjs'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -151,10 +154,10 @@ const form = ref({
   content: ''
 })
 
-const formRules = {
-  name: [{ required: true, message: '请输入模板名称', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入提示词内容', trigger: 'blur' }]
-}
+const formRules = computed(() => ({
+  name: [{ required: true, message: t('promptTemplates.messages.nameRequired'), trigger: 'blur' }],
+  content: [{ required: true, message: t('promptTemplates.messages.contentRequired'), trigger: 'blur' }]
+}))
 
 const formatDate = (date) => {
   if (!date) return '-'
@@ -175,7 +178,7 @@ const loadTemplates = async () => {
     templates.value = data.items
     total.value = data.total
   } catch (error) {
-    ElMessage.error('加载模板失败')
+    ElMessage.error(t('promptTemplates.messages.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -218,15 +221,16 @@ const submitForm = async () => {
     try {
       if (isEdit.value) {
         await updatePromptTemplate(editId.value, form.value)
-        ElMessage.success('更新成功')
+        ElMessage.success(t('promptTemplates.messages.updateSuccess'))
       } else {
         await createPromptTemplate(form.value)
-        ElMessage.success('创建成功')
+        ElMessage.success(t('promptTemplates.messages.createSuccess'))
       }
       showDialog.value = false
       loadTemplates()
     } catch (error) {
-      ElMessage.error((isEdit.value ? '更新' : '创建') + '失败: ' + (error.response?.data?.detail || error.message))
+      const msg = isEdit.value ? t('promptTemplates.messages.updateFailed') : t('promptTemplates.messages.createFailed')
+      ElMessage.error(msg + (error.response?.data?.detail || error.message))
     } finally {
       submitting.value = false
     }
@@ -235,20 +239,20 @@ const submitForm = async () => {
 
 const confirmDelete = (row) => {
   ElMessageBox.confirm(
-    `确定要删除模板 "${row.name}" 吗？此操作不可恢复。`,
-    '删除确认',
+    t('promptTemplates.messages.deleteConfirm', { name: row.name }),
+    t('promptTemplates.messages.deleteTitle'),
     {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.delete'),
+      cancelButtonText: t('common.cancel'),
       type: 'error'
     }
   ).then(async () => {
     try {
       await deletePromptTemplate(row._id)
-      ElMessage.success('删除成功')
+      ElMessage.success(t('promptTemplates.messages.deleteSuccess'))
       loadTemplates()
     } catch (error) {
-      ElMessage.error('删除失败: ' + (error.response?.data?.detail || error.message))
+      ElMessage.error(t('promptTemplates.messages.deleteFailed') + (error.response?.data?.detail || error.message))
     }
   }).catch(() => {})
 }

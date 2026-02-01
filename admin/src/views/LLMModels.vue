@@ -4,15 +4,15 @@
       <template #header>
         <div class="card-header">
           <div class="header-left">
-            <span class="title">模型设置</span>
-            <span class="subtitle">管理大语言模型配置，用于 Agent 智能提取</span>
+            <span class="title">{{ $t('llmModels.title') }}</span>
+            <span class="subtitle">{{ $t('llmModels.subtitle') }}</span>
           </div>
           <div class="header-actions">
             <el-button type="primary" @click="showCreateDialog">
-              <el-icon><Plus /></el-icon> 新增模型
+              <el-icon><Plus /></el-icon> {{ $t('llmModels.addModel') }}
             </el-button>
             <el-button @click="loadModels" :loading="loading">
-              <el-icon><Refresh /></el-icon> 刷新
+              <el-icon><Refresh /></el-icon> {{ $t('llmModels.refresh') }}
             </el-button>
           </div>
         </div>
@@ -26,25 +26,25 @@
         border 
         stripe
       >
-        <el-table-column prop="name" label="模型名称" width="350">
+        <el-table-column prop="name" :label="$t('llmModels.columns.name')" width="350">
           <template #default="{ row }">
             <div class="model-name-cell">
               <el-tag :type="getProviderType(row.provider)" effect="plain" size="small">
                 {{ getProviderLabel(row.provider) }}
               </el-tag>
               <span class="model-name">{{ row.name }}</span>
-              <el-tag v-if="row.is_default" type="warning" size="small" effect="dark">默认</el-tag>
+              <el-tag v-if="row.is_default" type="warning" size="small" effect="dark">{{ $t('llmModels.isDefault') }}</el-tag>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="model_name" label="模型标识" width="300">
+        <el-table-column prop="model_name" :label="$t('llmModels.columns.id')" width="300">
           <template #default="{ row }">
             <code class="model-id">{{ row.model_name }}</code>
           </template>
         </el-table-column>
 
-        <el-table-column prop="base_url" label="API 地址">
+        <el-table-column prop="base_url" :label="$t('llmModels.columns.baseUrl')">
           <template #default="{ row }">
             <el-tooltip :content="row.base_url" placement="top">
               <span class="url-text">{{ row.base_url }}</span>
@@ -58,46 +58,46 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="supports_vision" label="视觉" width="80" align="center">
+        <el-table-column prop="supports_vision" :label="$t('llmModels.columns.vision')" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="row.supports_vision ? 'success' : 'info'" effect="plain" size="small">
-              {{ row.supports_vision ? '支持' : '否' }}
+              {{ row.supports_vision ? $t('llmModels.vision.yes') : $t('llmModels.vision.no') }}
             </el-tag>
           </template>
         </el-table-column>
         
-        <el-table-column prop="supports_stream" label="流式" width="80" align="center">
+        <el-table-column prop="supports_stream" :label="$t('llmModels.columns.stream')" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="row.supports_stream ? 'success' : 'info'" effect="plain" size="small">
-              {{ row.supports_stream ? '支持' : '否' }}
+              {{ row.supports_stream ? $t('llmModels.stream.yes') : $t('llmModels.stream.no') }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column prop="max_retries" label="最大重试" width="100" align="center">
+        <el-table-column prop="max_retries" :label="$t('llmModels.columns.retries')" width="100" align="center">
           <template #default="{ row }">
             <el-tag type="info" effect="plain" size="small">{{ row.max_retries ?? 3 }}</el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column prop="is_enabled" label="状态" width="100" align="center">
+        <el-table-column prop="is_enabled" :label="$t('llmModels.columns.status')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_enabled ? 'success' : 'info'" effect="dark" size="default">
-              {{ row.is_enabled ? '已启用' : '已禁用' }}
+              {{ row.is_enabled ? $t('llmModels.status.enabled') : $t('llmModels.status.disabled') }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" fixed="right" align="center">
+        <el-table-column :label="$t('llmModels.columns.actions')" width="180" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="测试连接" placement="top">
+              <el-tooltip :content="$t('llmModels.tooltips.test')" placement="top">
                 <el-button circle size="small" type="success" :icon="Connection" @click="testModel(row)" :loading="testingId === row._id" />
               </el-tooltip>
-              <el-tooltip content="编辑" placement="top">
+              <el-tooltip :content="$t('llmModels.tooltips.edit')" placement="top">
                 <el-button circle size="small" type="primary" :icon="Edit" @click="showEditDialog(row)" />
               </el-tooltip>
-              <el-tooltip content="删除" placement="top">
+              <el-tooltip :content="$t('llmModels.tooltips.delete')" placement="top">
                 <el-button circle size="small" type="danger" :icon="Delete" @click="confirmDelete(row)" />
               </el-tooltip>
             </div>
@@ -121,7 +121,7 @@
     <!-- 新增/编辑对话框 -->
     <el-dialog 
       v-model="showDialog" 
-      :title="isEdit ? '编辑模型配置' : '新增模型配置'" 
+      :title="isEdit ? $t('llmModels.dialog.editTitle') : $t('llmModels.dialog.createTitle')" 
       width="600px" 
       destroy-on-close
       class="bento-dialog"
@@ -129,35 +129,35 @@
       <el-form :model="form" label-width="100px" label-position="top">
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="模型名称" required>
-              <el-input v-model="form.name" placeholder="如：GPT-4o" clearable />
+            <el-form-item :label="$t('llmModels.dialog.name')" required>
+              <el-input v-model="form.name" :placeholder="$t('llmModels.dialog.namePlaceholder')" clearable />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="服务商" required>
+            <el-form-item :label="$t('llmModels.dialog.provider')" required>
               <el-select v-model="form.provider" style="width: 100%">
                 <el-option label="OpenAI" value="openai" />
                 <el-option label="Anthropic" value="anthropic" />
                 <el-option label="Google" value="google" />
                 <el-option label="Ollama" value="ollama" />
-                <el-option label="自定义" value="custom" />
+                <el-option :label="$t('common.custom')" value="custom" />
               </el-select>
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-form-item label="模型标识" required>
-          <el-input v-model="form.model_name" placeholder="如：gpt-4o, claude-3-opus-20240229" clearable />
+        <el-form-item :label="$t('llmModels.dialog.id')" required>
+          <el-input v-model="form.model_name" :placeholder="$t('llmModels.dialog.idPlaceholder')" clearable />
         </el-form-item>
 
-        <el-form-item label="API 地址" required>
+        <el-form-item :label="$t('llmModels.dialog.baseUrl')" required>
           <el-input v-model="form.base_url" :placeholder="getBaseUrlPlaceholder(form.provider)" clearable>
             <template #prefix><el-icon><Link /></el-icon></template>
           </el-input>
         </el-form-item>
 
-        <el-form-item label="API Key">
-          <el-input v-model="form.api_key" type="password" placeholder="留空则不更新" show-password clearable>
+        <el-form-item :label="$t('llmModels.dialog.apiKey')">
+          <el-input v-model="form.api_key" type="password" :placeholder="$t('llmModels.dialog.apiKeyPlaceholder')" show-password clearable>
             <template #prefix><el-icon><Lock /></el-icon></template>
           </el-input>
         </el-form-item>
@@ -173,7 +173,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="最大重试次数">
+            <el-form-item :label="$t('llmModels.dialog.retries')">
               <el-input-number v-model="form.max_retries" :min="0" :max="10" style="width: 100%" />
             </el-form-item>
           </el-col>
@@ -181,22 +181,22 @@
 
         <el-row :gutter="20">
           <el-col :span="6">
-            <el-form-item label="支持视觉">
+            <el-form-item :label="$t('llmModels.dialog.vision')">
               <el-switch v-model="form.supports_vision" />
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="支持流式">
+            <el-form-item :label="$t('llmModels.dialog.stream')">
               <el-switch v-model="form.supports_stream" />
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="设为默认">
+            <el-form-item :label="$t('llmModels.dialog.isDefault')">
               <el-switch v-model="form.is_default" />
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="启用状态">
+            <el-form-item :label="$t('llmModels.dialog.isEnabled')">
               <el-switch v-model="form.is_enabled" />
             </el-form-item>
           </el-col>
@@ -205,9 +205,9 @@
 
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showDialog = false" round>取消</el-button>
+          <el-button @click="showDialog = false" round>{{ $t('tasks.createDialog.cancel') }}</el-button>
           <el-button type="primary" @click="submitForm" :loading="submitting" round>
-            {{ isEdit ? '保存' : '创建' }}
+            {{ isEdit ? $t('llmModels.dialog.save') : $t('llmModels.dialog.create') }}
           </el-button>
         </div>
       </template>
@@ -217,9 +217,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete, Connection, Link, Lock } from '@element-plus/icons-vue'
 import { getLLMModels, createLLMModel, updateLLMModel, deleteLLMModel, testLLMModel } from '../api'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -267,7 +270,7 @@ const getProviderLabel = (provider) => {
     anthropic: 'Anthropic',
     google: 'Google',
     ollama: 'Ollama',
-    custom: '自定义'
+    custom: t('common.custom') || '自定义'
   }
   return labels[provider] || provider
 }
@@ -294,7 +297,7 @@ const loadModels = async () => {
     models.value = data.items
     total.value = data.total
   } catch (error) {
-    ElMessage.error('获取模型列表失败: ' + (error.response?.data?.detail || error.message))
+    ElMessage.error(t('llmModels.messages.loadFailed') + (error.response?.data?.detail || error.message))
   } finally {
     loading.value = false
   }
@@ -329,7 +332,7 @@ const showEditDialog = (row) => {
 
 const submitForm = async () => {
   if (!form.value.name || !form.value.model_name || !form.value.base_url) {
-    ElMessage.warning('请填写必填项')
+    ElMessage.warning(t('llmModels.messages.fillRequired'))
     return
   }
 
@@ -343,16 +346,16 @@ const submitForm = async () => {
 
     if (isEdit.value) {
       await updateLLMModel(editId.value, submitData)
-      ElMessage.success('模型配置已更新')
+      ElMessage.success(t('llmModels.messages.updateSuccess'))
     } else {
       await createLLMModel(submitData)
-      ElMessage.success('模型配置已创建')
+      ElMessage.success(t('llmModels.messages.createSuccess'))
     }
     
     showDialog.value = false
     loadModels()
   } catch (error) {
-    ElMessage.error('操作失败: ' + (error.response?.data?.detail || error.message))
+    ElMessage.error(t('llmModels.messages.operationFailed') + (error.response?.data?.detail || error.message))
   } finally {
     submitting.value = false
   }
@@ -360,21 +363,21 @@ const submitForm = async () => {
 
 const confirmDelete = (row) => {
   ElMessageBox.confirm(
-    `确定要删除模型 "${row.name}" 吗？此操作不可恢复。`,
-    '删除确认',
+    t('llmModels.messages.deleteConfirm', { name: row.name }),
+    t('llmModels.messages.deleteTitle'),
     {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.delete'),
+      cancelButtonText: t('common.cancel'),
       type: 'error',
       icon: Delete
     }
   ).then(async () => {
     try {
       await deleteLLMModel(row._id)
-      ElMessage.success('删除成功')
+      ElMessage.success(t('llmModels.messages.deleteSuccess'))
       loadModels()
     } catch (error) {
-      ElMessage.error('删除失败: ' + (error.response?.data?.detail || error.message))
+      ElMessage.error(t('llmModels.messages.deleteFailed') + (error.response?.data?.detail || error.message))
     }
   }).catch(() => {})
 }
@@ -384,12 +387,12 @@ const testModel = async (row) => {
   try {
     const result = await testLLMModel(row._id)
     if (result.success) {
-      ElMessage.success(`连接成功！响应耗时: ${result.latency_ms}ms`)
+      ElMessage.success(t('llmModels.messages.testSuccess', { latency: result.latency_ms }))
     } else {
-      ElMessage.error(`连接失败: ${result.message}`)
+      ElMessage.error(t('llmModels.messages.testFailed', { message: result.message }))
     }
   } catch (error) {
-    ElMessage.error('测试失败: ' + (error.response?.data?.detail || error.message))
+    ElMessage.error(t('llmModels.messages.testCallFailed') + (error.response?.data?.detail || error.message))
   } finally {
     testingId.value = null
   }

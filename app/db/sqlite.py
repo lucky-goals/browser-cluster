@@ -69,18 +69,19 @@ class SQLiteDB:
         """获取所有用户"""
         conn = self._get_conn()
         cursor = conn.cursor()
-        cursor.execute('SELECT id, username, role, created_at, updated_at FROM users')
+        cursor.execute('SELECT id, username, role, language, created_at, updated_at FROM users')
         rows = cursor.fetchall()
         
         users = []
         for row in rows:
+            user_dict = dict(row)
             users.append({
-                "id": row['id'],
-                "username": row['username'],
-                "role": row['role'],
-                "language": row.get('language', 'zh-CN'),
-                "created_at": row['created_at'],
-                "updated_at": row['updated_at']
+                "id": user_dict['id'],
+                "username": user_dict['username'],
+                "role": user_dict['role'],
+                "language": user_dict.get('language', 'zh-CN'),
+                "created_at": user_dict['created_at'],
+                "updated_at": user_dict['updated_at']
             })
         conn.close()
         return users

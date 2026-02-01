@@ -2,33 +2,45 @@
   <div class="users-container">
     <div class="page-header">
       <div class="header-title">
-        <h2>用户管理</h2>
-        <p>管理系统访问账号及其权限</p>
+        <h2>{{ $t('users.title') }}</h2>
+        <p>{{ $t('users.subtitle') }}</p>
       </div>
-      <el-button type="primary" :icon="Plus" @click="handleAdd">新增用户</el-button>
+      <el-button type="primary" @click="handleAdd">
+        <el-icon><Plus /></el-icon>{{ $t('users.addUser') }}
+      </el-button>
     </div>
 
     <el-card class="table-card">
       <el-table :data="users" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户名" min-width="150" />
-        <el-table-column prop="role" label="角色" width="120">
+        <el-table-column prop="username" :label="$t('users.username')" min-width="150" />
+        <el-table-column prop="role" :label="$t('users.role')" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.role === 'admin' ? 'danger' : 'info'">{{ row.role }}</el-tag>
+            <el-tag :type="row.role === 'admin' ? 'danger' : 'info'">
+              {{ row.role === 'admin' ? $t('users.admin') : $t('users.user') }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" min-width="180" />
-        <el-table-column prop="updated_at" label="更新时间" min-width="180" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column prop="created_at" :label="$t('users.createdAt')" min-width="180">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+            {{ formatTime(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="updated_at" :label="$t('users.updatedAt')" min-width="180">
+          <template #default="{ row }">
+            {{ formatTime(row.updated_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('users.actions')" width="180" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" :icon="Edit" @click="handleEdit(row)">{{ $t('users.edit') }}</el-button>
             <el-button 
               link 
               type="danger" 
               :icon="Delete" 
               @click="handleDelete(row)"
               :disabled="row.username === currentUser.username"
-            >删除</el-button>
+            >{{ $t('users.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -37,33 +49,33 @@
     <!-- 用户表单弹窗 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑用户' : '新增用户'"
+      :title="isEdit ? $t('users.editUser') : $t('users.addUser')"
       width="450px"
       destroy-on-close
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" :disabled="isEdit" />
+        <el-form-item :label="$t('users.username')" prop="username">
+          <el-input v-model="form.username" :placeholder="$t('users.usernamePlaceholder')" :disabled="isEdit" />
         </el-form-item>
-        <el-form-item label="密码" :prop="isEdit ? '' : 'password'">
+        <el-form-item :label="$t('users.password')" :prop="isEdit ? '' : 'password'">
           <el-input 
             v-model="form.password" 
             type="password" 
-            placeholder="请输入密码" 
+            :placeholder="$t('users.passwordPlaceholder')" 
             show-password
           />
-          <p v-if="isEdit" class="form-tip">留空则不修改密码</p>
+          <p v-if="isEdit" class="form-tip">{{ $t('users.passwordTip') }}</p>
         </el-form-item>
-        <el-form-item label="角色" prop="role">
-          <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%">
-            <el-option label="管理员" value="admin" />
-            <el-option label="普通用户" value="user" />
+        <el-form-item :label="$t('users.role')" prop="role">
+          <el-select v-model="form.role" :placeholder="$t('users.rolePlaceholder')" style="width: 100%">
+            <el-option :label="$t('users.admin')" value="admin" />
+            <el-option :label="$t('users.user')" value="user" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -75,6 +87,10 @@ import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { getUsers, createUser, updateUser, deleteUser } from '../api'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+import dayjs from 'dayjs'
+
+const { t } = useI18n()
 
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user || {})
@@ -94,9 +110,13 @@ const form = ref({
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-  role: [{ required: true, message: '请选择角色', trigger: 'change' }]
+  username: [{ required: true, message: t('users.usernamePlaceholder'), trigger: 'blur' }],
+  password: [{ required: true, message: t('users.passwordPlaceholder'), trigger: 'blur' }],
+  role: [{ required: true, message: t('users.rolePlaceholder'), trigger: 'change' }]
+}
+
+const formatTime = (time) => {
+  return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
 }
 
 const fetchUsers = async () => {
@@ -104,7 +124,7 @@ const fetchUsers = async () => {
   try {
     users.value = await getUsers()
   } catch (error) {
-    ElMessage.error('获取用户列表失败')
+    ElMessage.error(t('users.getUsersFailed'))
   } finally {
     loading.value = false
   }
@@ -134,20 +154,20 @@ const handleEdit = (row) => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(
-    `确定要删除用户 "${row.username}" 吗？`,
-    '提示',
+    t('users.deleteConfirm', { username: row.username }),
+    t('common.tip'),
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning',
     }
   ).then(async () => {
     try {
       await deleteUser(row.id)
-      ElMessage.success('删除成功')
+      ElMessage.success(t('users.deleteSuccess'))
       fetchUsers()
     } catch (error) {
-      ElMessage.error(error.response?.data?.detail || '删除失败')
+      ElMessage.error(error.response?.data?.detail || t('users.deleteFailed'))
     }
   })
 }
@@ -165,19 +185,19 @@ const handleSubmit = async () => {
             password: form.value.password || undefined,
             role: form.value.role
           })
-          ElMessage.success('更新成功')
+          ElMessage.success(t('users.updateSuccess'))
         } else {
           await createUser({
             username: form.value.username,
             password: form.value.password,
             role: form.value.role
           })
-          ElMessage.success('创建成功')
+          ElMessage.success(t('users.createSuccess'))
         }
         dialogVisible.value = false
         fetchUsers()
       } catch (error) {
-        ElMessage.error(error.response?.data?.detail || '操作失败')
+        ElMessage.error(error.response?.data?.detail || t('users.operationFailed'))
       } finally {
         submitLoading.value = false
       }

@@ -20,7 +20,7 @@
               {{ item.trend > 0 ? '+' : '' }}{{ item.trend }}% 
               <el-icon><CaretTop v-if="item.trend > 0" /><CaretBottom v-else /></el-icon>
             </span>
-            <span class="tip">较昨日</span>
+            <span class="tip">{{ $t('stats.cards.trendTip') }}</span>
           </div>
         </el-card>
       </el-col>
@@ -31,10 +31,10 @@
         <el-card shadow="hover" class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>任务处理分析</span>
+              <span>{{ $t('stats.charts.taskAnalysis') }}</span>
               <el-radio-group v-model="chartTimeRange" size="small">
-                <el-radio-button label="today">今日</el-radio-button>
-                <el-radio-button label="week">近一周</el-radio-button>
+                <el-radio-button label="today">{{ $t('stats.charts.today') }}</el-radio-button>
+                <el-radio-button label="week">{{ $t('stats.charts.week') }}</el-radio-button>
               </el-radio-group>
             </div>
           </template>
@@ -42,11 +42,11 @@
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="hover" header="实时队列状态" class="queue-card-main">
+        <el-card shadow="hover" :header="$t('stats.queue.title')" class="queue-card-main">
           <div class="queue-summary">
             <div class="total-queue">
               <div class="val">{{ totalQueue }}</div>
-              <div class="lab">当前排队总数</div>
+              <div class="lab">{{ $t('stats.queue.total') }}</div>
             </div>
           </div>
           <div class="queue-container">
@@ -74,9 +74,12 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useStatsStore } from '../stores/stats'
 import * as echarts from 'echarts'
 import { Timer, Checked, CircleClose, DataLine, CaretTop, CaretBottom } from '@element-plus/icons-vue'
+
+const { t } = useI18n()
 
 const statsStore = useStatsStore()
 const chartRef = ref(null)
@@ -87,17 +90,17 @@ const stats = computed(() => statsStore.stats)
 const totalQueue = computed(() => statsStore.totalQueue)
 
 const statCards = computed(() => [
-  { label: '今日任务总量', value: stats.value.today.total, icon: DataLine, type: 'primary', unit: '', trend: stats.value.trends.total },
-  { label: '成功处理', value: stats.value.today.success, icon: Checked, type: 'success', unit: '', trend: stats.value.trends.success },
-  { label: '失败记录', value: stats.value.today.failed, icon: CircleClose, type: 'danger', unit: '', trend: stats.value.trends.failed },
-  { label: '平均响应时间', value: stats.value.today.avg_duration?.toFixed(2) || 0, icon: Timer, type: 'warning', unit: 's', trend: stats.value.trends.avg_duration }
+  { label: t('stats.cards.todayTotal'), value: stats.value.today.total, icon: DataLine, type: 'primary', unit: '', trend: stats.value.trends.total },
+  { label: t('stats.cards.successRate'), value: stats.value.today.success, icon: Checked, type: 'success', unit: '', trend: stats.value.trends.success },
+  { label: t('stats.cards.failedCount'), value: stats.value.today.failed, icon: CircleClose, type: 'danger', unit: '', trend: stats.value.trends.failed },
+  { label: t('stats.cards.avgDuration'), value: stats.value.today.avg_duration?.toFixed(2) || 0, icon: Timer, type: 'warning', unit: 's', trend: stats.value.trends.avg_duration }
 ])
 
 const queueItems = computed(() => [
-  { label: '等待中', value: stats.value.queue.pending, color: '#909399' },
-  { label: '处理中', value: stats.value.queue.processing, color: '#e6a23c' },
-  { label: '已完成', value: stats.value.queue.success, color: '#67c23a' },
-  { label: '已失败', value: stats.value.queue.failed, color: '#f56c6c' }
+  { label: t('stats.queue.pending'), value: stats.value.queue.pending, color: '#909399' },
+  { label: t('stats.queue.processing'), value: stats.value.queue.processing, color: '#e6a23c' },
+  { label: t('stats.queue.success'), value: stats.value.queue.success, color: '#67c23a' },
+  { label: t('stats.queue.failed'), value: stats.value.queue.failed, color: '#f56c6c' }
 ])
 
 const calculatePercentage = (value) => {
@@ -124,7 +127,7 @@ const updateChart = () => {
       axisPointer: { type: 'cross' }
     },
     legend: {
-      data: ['成功', '失败', '总计'],
+      data: [t('stats.charts.legend.success'), t('stats.charts.legend.failed'), t('stats.charts.legend.total')],
       bottom: 0
     },
     grid: {
@@ -142,7 +145,7 @@ const updateChart = () => {
     yAxis: { type: 'value' },
     series: [
       {
-        name: '成功',
+        name: t('stats.charts.legend.success'),
         type: 'line',
         smooth: true,
         data: successData,
@@ -150,7 +153,7 @@ const updateChart = () => {
         areaStyle: { opacity: 0.1 }
       },
       {
-        name: '失败',
+        name: t('stats.charts.legend.failed'),
         type: 'line',
         smooth: true,
         data: failedData,
@@ -158,7 +161,7 @@ const updateChart = () => {
         areaStyle: { opacity: 0.1 }
       },
       {
-        name: '总计',
+        name: t('stats.charts.legend.total'),
         type: 'line',
         smooth: true,
         data: totalData,

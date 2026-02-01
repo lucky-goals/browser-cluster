@@ -5,7 +5,7 @@
         <div class="card-header">
           <div class="header-left">
             <span class="title">{{ $t('tasks.title') }}</span>
-            <span class="subtitle">实时监控和管理自动化抓取任务</span>
+            <span class="subtitle">{{ $t('tasks.subtitle') }}</span>
           </div>
           <div class="header-actions">
             <el-button 
@@ -38,7 +38,7 @@
             </el-radio-group>
           </el-form-item>
           
-          <el-form-item label="关键词搜索">
+          <el-form-item :label="$t('tasks.search.keyword')">
             <el-input 
               v-model="filterForm.url" 
               :placeholder="$t('tasks.searchPlaceholder')" 
@@ -53,8 +53,8 @@
           </el-form-item>
           
           <el-form-item>
-            <el-button type="primary" @click="handleFilter">查询</el-button>
-            <el-button @click="resetFilter">重置</el-button>
+            <el-button type="primary" @click="handleFilter">{{ $t('tasks.search.query') }}</el-button>
+            <el-button @click="resetFilter">{{ $t('tasks.search.reset') }}</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -91,7 +91,7 @@
               </el-tooltip>
               <!-- 显示重定向后的实际 URL -->
               <div v-if="row.result?.metadata?.actual_url && row.result.metadata.actual_url !== row.url" class="actual-url-info">
-                <el-tooltip :content="'实际访问: ' + row.result.metadata.actual_url" placement="bottom">
+                <el-tooltip :content="$t('tasks.columns.actualUrl') + ': ' + row.result.metadata.actual_url" placement="bottom">
                   <span class="actual-url-text">
                     <el-icon><Right /></el-icon>
                     {{ row.result.metadata.actual_url }}
@@ -115,19 +115,19 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="执行统计" width="220">
+        <el-table-column :label="$t('tasks.columns.stats')" width="220">
           <template #default="{ row }">
             <div class="stats-group">
               <div class="stat-item timing-row">
                 <el-icon><Timer /></el-icon>
-                <span class="label">耗时:</span>
+                <span class="label">{{ $t('tasks.stats.duration') }}</span>
                 <div class="timing-tags">
-                  <el-tooltip content="总执行耗时" placement="top">
+                  <el-tooltip :content="$t('tasks.stats.totalDuration')" placement="top">
                     <el-tag size="small" effect="dark" class="time-tag total">
                       {{ row.duration ? row.duration.toFixed(1) + 's' : '-' }}
                     </el-tag>
                   </el-tooltip>
-                  <el-tooltip v-if="row.result?.metadata?.load_time" content="页面加载耗时" placement="top">
+                  <el-tooltip v-if="row.result?.metadata?.load_time" :content="$t('tasks.stats.loadDuration')" placement="top">
                     <el-tag size="small" effect="plain" type="warning" class="time-tag load">
                       <el-icon class="mini-icon"><Loading /></el-icon>
                       {{ row.result.metadata.load_time.toFixed(1) }}s
@@ -137,14 +137,14 @@
               </div>
               <div class="stat-item">
                 <el-icon><Cpu /></el-icon>
-                <span class="label">缓存:</span>
+                <span class="label">{{ $t('tasks.stats.cache') }}</span>
                 <el-tag :type="row.cached ? 'success' : 'info'" size="small" effect="light" class="cache-tag">
-                  {{ row.cached ? '命中' : '跳过' }}
+                  {{ row.cached ? $t('tasks.stats.cacheHit') : $t('tasks.stats.cacheSkip') }}
                 </el-tag>
               </div>
               <div class="stat-item">
                 <el-icon><Monitor /></el-icon>
-                <span class="label">节点:</span>
+                <span class="label">{{ $t('tasks.stats.node') }}</span>
                 <el-tag v-if="row.node_id" :type="getNodeColor(row.node_id)" size="small" effect="light" class="node-tag">
                   {{ row.node_id }}
                 </el-tag>
@@ -154,17 +154,17 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="时间轨迹" width="180">
+        <el-table-column :label="$t('tasks.columns.timeline')" width="180">
           <template #default="{ row }">
             <div class="timeline-mini">
               <div class="time-row">
                 <span class="dot create"></span>
-                <span class="label">创建:</span>
+                <span class="label">{{ $t('tasks.stats.created') }}</span>
                 <span class="time">{{ formatTimeOnly(row.created_at) }}</span>
               </div>
               <div class="time-row" v-if="row.completed_at">
                 <span class="dot complete"></span>
-                <span class="label">完成:</span>
+                <span class="label">{{ $t('tasks.stats.completed') }}</span>
                 <span class="time">{{ formatTimeOnly(row.completed_at) }}</span>
               </div>
             </div>
@@ -174,11 +174,11 @@
         <el-table-column :label="$t('tasks.columns.actions')" width="160" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="查看详情" placement="top">
+              <el-tooltip :content="$t('tasks.detail.title')" placement="top">
                 <el-button circle size="small" :icon="View" @click="viewTask(row)" />
               </el-tooltip>
               
-              <el-tooltip content="重试任务" placement="top">
+              <el-tooltip :content="$t('tasks.messages.retryConfirm')" placement="top">
                 <el-button 
                   circle 
                   size="small" 
@@ -189,7 +189,7 @@
                 />
               </el-tooltip>
 
-              <el-tooltip content="删除任务" placement="top">
+              <el-tooltip :content="$t('common.delete')" placement="top">
                 <el-button 
                   circle 
                   size="small" 
@@ -219,7 +219,7 @@
     <!-- 新建任务对话框 -->
     <el-dialog 
       v-model="showScrapeDialog" 
-      title="新建抓取任务" 
+      :title="$t('tasks.createDialog.title')" 
       width="900px" 
       destroy-on-close 
       top="15vh"
@@ -230,33 +230,33 @@
         <el-card shadow="never" class="basic-config-card">
           <el-row :gutter="20">
             <el-col :span="14">
-              <el-form-item label="目标 URL" required class="mb-0">
+              <el-form-item :label="$t('tasks.createDialog.targetUrl')" required class="mb-0">
                 <el-input v-model="scrapeForm.url" placeholder="https://example.com" clearable>
                   <template #prefix><el-icon><Connection /></el-icon></template>
                 </el-input>
               </el-form-item>
             </el-col>
             <el-col :span="5">
-              <el-form-item label="任务优先级" class="mb-0">
+              <el-form-item :label="$t('tasks.createDialog.priority')" class="mb-0">
                 <el-select v-model="scrapeForm.priority" style="width: 100%">
-                  <el-option label="最高 (10)" :value="10" />
-                  <el-option label="普通 (5)" :value="5" />
-                  <el-option label="最低 (1)" :value="1" />
+                  <el-option :label="$t('tasks.createDialog.priorityHigh')" :value="10" />
+                  <el-option :label="$t('tasks.createDialog.priorityNormal')" :value="5" />
+                  <el-option :label="$t('tasks.createDialog.priorityLow')" :value="1" />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :span="5">
-              <el-form-item label="数据缓存" class="mb-0">
+              <el-form-item :label="$t('tasks.createDialog.cache')" class="mb-0">
                 <div class="compact-switch-wrapper">
                   <el-switch v-model="scrapeForm.cache.enabled" />
-                  <span class="status-text">{{ scrapeForm.cache.enabled ? '开启' : '关闭' }}</span>
+                  <span class="status-text">{{ scrapeForm.cache.enabled ? $t('tasks.createDialog.cacheEnabled') : $t('tasks.createDialog.cacheDisabled') }}</span>
                 </div>
               </el-form-item>
             </el-col>
           </el-row>
           <el-row v-if="scrapeForm.cache.enabled" style="margin-top: 15px;">
             <el-col :span="24">
-              <el-form-item label="缓存时长 (秒)" class="mb-0">
+              <el-form-item :label="$t('tasks.createDialog.cacheTTL')" class="mb-0">
                 <el-input-number v-model="scrapeForm.cache.ttl" :min="60" :step="60" style="width: 200px" />
               </el-form-item>
             </el-col>
@@ -271,15 +271,15 @@
               <template #label>
                 <div class="tab-label">
                   <el-icon><Monitor /></el-icon>
-                  <span>浏览器配置</span>
+                  <span>{{ $t('tasks.createDialog.tabs.browser') }}</span>
                 </div>
               </template>
               
               <div class="tab-content-grid">
                 <!-- 加载策略 -->
                 <div class="config-section">
-                  <div class="section-title">加载策略</div>
-                  <el-form-item label="等待条件">
+                  <div class="section-title">{{ $t('tasks.createDialog.browser.strategy') }}</div>
+                  <el-form-item :label="$t('tasks.createDialog.browser.waitFor')">
                     <el-select v-model="scrapeForm.params.wait_for" style="width: 100%" :teleported="false">
                       <el-option label="Network Idle" value="networkidle" />
                       <el-option label="Page Load" value="load" />
@@ -288,12 +288,12 @@
                   </el-form-item>
                   <el-row :gutter="15">
                     <el-col :span="12">
-                      <el-form-item label="超时 (ms)">
+                      <el-form-item :label="$t('tasks.createDialog.browser.timeout')">
                         <el-input-number v-model="scrapeForm.params.timeout" :min="5000" :step="5000" style="width: 100%" controls-position="right" />
                       </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                      <el-form-item label="额外等待 (ms)">
+                      <el-form-item :label="$t('tasks.createDialog.browser.waitTime')">
                         <el-input-number v-model="scrapeForm.params.wait_time" :min="0" :step="500" style="width: 100%" controls-position="right" />
                       </el-form-item>
                     </el-col>
@@ -302,8 +302,8 @@
 
                 <!-- 环境模拟 -->
                 <div class="config-section">
-                  <div class="section-title">环境模拟</div>
-                  <el-form-item label="视口尺寸 (宽 × 高)">
+                  <div class="section-title">{{ $t('tasks.createDialog.browser.emulation') }}</div>
+                  <el-form-item :label="$t('tasks.createDialog.browser.viewport')">
                     <div class="viewport-group">
                       <el-input-number v-model="scrapeForm.params.viewport.width" :min="320" controls-position="right" />
                       <span class="v-sep">×</span>
@@ -312,19 +312,19 @@
                   </el-form-item>
                   <div class="feature-grid mini">
                     <div class="feature-cell">
-                      <span class="label">反检测</span>
+                      <span class="label">{{ $t('tasks.createDialog.browser.stealth') }}</span>
                       <el-switch v-model="scrapeForm.params.stealth" size="small" />
                     </div>
                     <div class="feature-cell">
-                      <span class="label">自动截图</span>
+                      <span class="label">{{ $t('tasks.createDialog.browser.screenshot') }}</span>
                       <el-switch v-model="scrapeForm.params.screenshot" size="small" />
                     </div>
                     <div class="feature-cell" v-if="scrapeForm.params.screenshot">
-                      <span class="label">全屏截图</span>
+                      <span class="label">{{ $t('tasks.createDialog.browser.fullPage') }}</span>
                       <el-switch v-model="scrapeForm.params.is_fullscreen" size="small" />
                     </div>
                     <div class="feature-cell">
-                      <span class="label">无图模式</span>
+                      <span class="label">{{ $t('tasks.createDialog.browser.noImage') }}</span>
                       <el-switch v-model="scrapeForm.params.block_images" size="small" />
                     </div>
                   </div>
@@ -337,16 +337,16 @@
               <template #label>
                 <div class="tab-label">
                   <el-icon><Lock /></el-icon>
-                  <span>高级选项</span>
+                  <span>{{ $t('tasks.createDialog.tabs.advanced') }}</span>
                 </div>
               </template>
               
               <div class="tab-content-flex">
                 <div class="config-section">
-                  <div class="section-title">代理设置</div>
-                  <el-form-item label="代理服务器 (可选)" label-position="top">
+                  <div class="section-title">{{ $t('tasks.createDialog.advanced.proxy') }}</div>
+                  <el-form-item :label="$t('tasks.createDialog.advanced.proxy') + ' (' + $t('tasks.createDialog.advanced.optional') + ')'" label-position="top">
                     <div style="display: flex; gap: 12px; width: 100%;">
-                      <el-input v-model="scrapeForm.params.proxy.server" placeholder="http://proxy.com:8080" clearable style="flex: 1" />
+                      <el-input v-model="scrapeForm.params.proxy.server" :placeholder="$t('tasks.createDialog.advanced.proxyPlaceholder')" clearable style="flex: 1" />
                       <el-button 
                         type="primary" 
                         plain 
@@ -355,7 +355,7 @@
                         @click="handleTestProxy"
                         style="width: 100px"
                       >
-                        测试
+                        {{ $t('tasks.createDialog.advanced.test') }}
                       </el-button>
                       <el-button 
                         type="info" 
@@ -364,38 +364,38 @@
                         @click="showProxySelector"
                         style="width: 120px"
                       >
-                        从代理池选择
+                        {{ $t('tasks.createDialog.advanced.pool') }}
                       </el-button>
                     </div>
                   </el-form-item>
                   <el-row :gutter="15" style="margin-top: 5px;">
                     <el-col :span="18">
-                      <el-form-item label="用户名">
-                        <el-input v-model="scrapeForm.params.proxy.username" placeholder="可选" />
+                      <el-form-item :label="$t('tasks.createDialog.advanced.username')">
+                        <el-input v-model="scrapeForm.params.proxy.username" :placeholder="$t('tasks.createDialog.advanced.optional')" />
                       </el-form-item>
                     </el-col>
                     <el-col :span="6">
-                      <el-form-item label="密码">
-                        <el-input v-model="scrapeForm.params.proxy.password" type="password" placeholder="可选" show-password />
+                      <el-form-item :label="$t('tasks.createDialog.advanced.password')">
+                        <el-input v-model="scrapeForm.params.proxy.password" type="password" :placeholder="$t('tasks.createDialog.advanced.optional')" show-password />
                       </el-form-item>
                     </el-col>
                   </el-row>
                 </div>
-
+ 
                 <div class="config-section">
-                  <div class="section-title">接口拦截</div>
-                  <el-form-item label="匹配模式">
+                  <div class="section-title">{{ $t('tasks.createDialog.advanced.interceptor') }}</div>
+                  <el-form-item :label="$t('tasks.createDialog.advanced.pattern')">
                     <el-select
                       v-model="scrapeForm.params.intercept_apis"
                       multiple
                       filterable
                       allow-create
                       collapse-tags
-                      placeholder="如: */api/v1/*"
+                      :placeholder="$t('tasks.createDialog.advanced.patternPlaceholder')"
                       style="width: 100%"
                     />
                   </el-form-item>
-                  <div class="form-tip">输入模式并回车即可添加多条拦截规则</div>
+                  <div class="form-tip">{{ $t('tasks.createDialog.advanced.patternTip') }}</div>
                 </div>
               </div>
             </el-tab-pane>
@@ -405,15 +405,15 @@
               <template #label>
                 <div class="tab-label">
                   <el-icon><MagicStick /></el-icon>
-                  <span>Agent 智能提取</span>
+                  <span>{{ $t('tasks.createDialog.tabs.agent') }}</span>
                 </div>
               </template>
               
               <div class="agent-tab-content">
                 <div class="agent-header-row">
-                  <div class="section-title">Agent 设置</div>
+                  <div class="section-title">{{ $t('tasks.createDialog.agent.title') }}</div>
                   <div class="agent-enable-switch">
-                    <span class="switch-label">启用智能识别</span>
+                    <span class="switch-label">{{ $t('tasks.createDialog.agent.enable') }}</span>
                     <el-switch v-model="scrapeForm.params.agent_enabled" />
                   </div>
                 </div>
@@ -421,8 +421,8 @@
                 <div v-if="scrapeForm.params.agent_enabled" class="agent-config-body">
                   <el-row :gutter="20">
                     <el-col :span="8">
-                      <el-form-item label="选择模型" required>
-                        <el-select v-model="scrapeForm.params.agent_model_id" style="width: 100%" placeholder="选择大模型">
+                      <el-form-item :label="$t('tasks.createDialog.agent.model')" required>
+                        <el-select v-model="scrapeForm.params.agent_model_id" style="width: 100%" :placeholder="$t('tasks.createDialog.agent.model')">
                           <el-option
                             v-for="model in llmModels"
                             :key="model._id"
@@ -439,7 +439,7 @@
                       </el-form-item>
                     </el-col>
                     <el-col :span="8">
-                      <el-form-item label="块状结果并行">
+                      <el-form-item :label="$t('tasks.createDialog.agent.parallel')">
                         <div style="display: flex; align-items: center; gap: 10px;">
                           <el-switch v-model="scrapeForm.params.agent_parallel_enabled" />
                           <el-input-number 
@@ -454,7 +454,7 @@
                       </el-form-item>
                     </el-col>
                     <el-col :span="8">
-                      <el-form-item label="使用模板">
+                      <el-form-item :label="$t('tasks.createDialog.agent.template')">
                         <div class="template-select-row">
                           <el-select
                             v-model="selectedTemplateId"
@@ -462,7 +462,7 @@
                             clearable
                             :filter-method="filterTemplates"
                             :loading="templateLoading"
-                            placeholder="搜索或选择模板..."
+                            :placeholder="$t('tasks.createDialog.agent.templatePlaceholder')"
                             popper-class="template-select-dropdown"
                             style="flex: 1; margin-right: 8px;"
                             @change="applyTemplate"
@@ -486,29 +486,29 @@
                     </el-col>
                   </el-row>
                   
-                  <el-form-item label="系统角色">
+                  <el-form-item :label="$t('tasks.createDialog.agent.systemPrompt')">
                     <el-input
                       v-model="scrapeForm.params.agent_system_prompt"
                       type="textarea"
                       :rows="4"
-                      placeholder="可选：定义 Agent 的系统角色或预置指令"
+                      :placeholder="$t('tasks.createDialog.agent.systemPromptPlaceholder')"
                     />
                   </el-form-item>
-
-                  <el-form-item label="提取要求" required>
+ 
+                  <el-form-item :label="$t('tasks.createDialog.agent.prompt')" required>
                     <el-input
                       v-model="scrapeForm.params.agent_prompt"
                       type="textarea"
                       :rows="12"
-                      placeholder="描述你想从页面提取的数据，例如：请提取房源标题、价格..."
+                      :placeholder="$t('tasks.createDialog.agent.promptPlaceholder')"
                     />
                   </el-form-item>
                 </div>
                 
                 <div v-else class="agent-disabled-placeholder">
                   <el-icon><InfoFilled /></el-icon>
-                  <p>开启 Agent 能够利用 AI 智能识别页面结构并提取数据</p>
-                  <el-button type="primary" plain @click="scrapeForm.params.agent_enabled = true">立即开启</el-button>
+                  <p>{{ $t('tasks.createDialog.agent.disabledDesc') }}</p>
+                  <el-button type="primary" plain @click="scrapeForm.params.agent_enabled = true">{{ $t('tasks.createDialog.agent.enableBtn') }}</el-button>
                 </div>
               </div>
             </el-tab-pane>
@@ -517,17 +517,17 @@
               <template #label>
                 <div class="tab-label">
                   <el-icon><Pointer /></el-icon>
-                  <span>交互步骤 (Skills)</span>
+                  <span>{{ $t('tasks.createDialog.tabs.skills') }}</span>
                 </div>
               </template>
               
               <div class="skills-tab-content">
                 <div class="agent-header-row">
-                  <div class="section-title">队列操作技能</div>
+                  <div class="section-title">{{ $t('tasks.createDialog.skills.title') }}</div>
                   <div class="header-right-actions">
                     <el-select
                       v-model="selectedBundleId"
-                      placeholder="应用技能包..."
+                      :placeholder="$t('tasks.createDialog.skills.applyBundle')"
                       size="small"
                       style="width: 180px; margin-right: 12px;"
                       @change="applySkillBundle"
@@ -540,7 +540,7 @@
                       />
                     </el-select>
                     <el-button type="primary" link @click="addInteractionStep">
-                      <el-icon><Plus /></el-icon> 添加步骤
+                      <el-icon><Plus /></el-icon> {{ $t('tasks.createDialog.skills.addStep') }}
                     </el-button>
                   </div>
                 </div>
@@ -549,14 +549,14 @@
                   <div v-for="(step, index) in scrapeForm.params.interaction_steps" :key="index" class="skill-step-item">
                     <div class="step-index">{{ index + 1 }}</div>
                     
-                    <el-select v-model="step.action" placeholder="选择动作" style="width: 140px" @change="resetStepParams(index)">
+                    <el-select v-model="step.action" :placeholder="$t('tasks.createDialog.advanced.optional')" style="width: 140px" @change="resetStepParams(index)">
                       <el-option
                          v-for="skill in builtInSkills"
                          :key="skill.name"
                          :label="skill.display_name"
                          :value="skill.name"
                        />
-                       <el-divider v-if="customSkills.length" content-position="center">自定义技能</el-divider>
+                       <el-divider v-if="customSkills.length" content-position="center">{{ $t('common.tip') }}</el-divider>
                        <el-option
                          v-for="skill in customSkills"
                          :key="skill.name"
@@ -568,45 +568,45 @@
                     <div class="step-params-config">
                       <!-- 基础滚动参数 -->
                       <template v-if="step.action === 'scroll'">
-                        <el-input v-model="step.params.selector" placeholder="容器选择器(默认window)" size="small" style="width: 180px" />
-                        <el-input-number v-model="step.params.distance" :step="100" placeholder="距离" size="small" style="width: 100px" />
+                        <el-input v-model="step.params.selector" :placeholder="$t('tasks.createDialog.skills.params.container')" size="small" style="width: 180px" />
+                        <el-input-number v-model="step.params.distance" :step="100" :placeholder="$t('tasks.createDialog.skills.params.distance')" size="small" style="width: 100px" />
                       </template>
-
+ 
                       <!-- 流式滚动参数 -->
                       <template v-if="step.action === 'infinite_scroll'">
-                        <el-input v-model="step.params.selector" placeholder="容器选择器(默认window)" size="small" style="width: 180px" />
-                        <el-input-number v-model="step.params.max_scrolls" :min="1" :max="50" placeholder="最大次数" size="small" style="width: 100px" />
-                        <el-input-number v-model="step.params.delay" :min="500" :step="500" placeholder="延迟(ms)" size="small" style="width: 110px" />
+                        <el-input v-model="step.params.selector" :placeholder="$t('tasks.createDialog.skills.params.container')" size="small" style="width: 180px" />
+                        <el-input-number v-model="step.params.max_scrolls" :min="1" :max="50" :placeholder="$t('tasks.createDialog.skills.params.maxScrolls')" size="small" style="width: 100px" />
+                        <el-input-number v-model="step.params.delay" :min="500" :step="500" :placeholder="$t('tasks.createDialog.skills.params.delay')" size="small" style="width: 110px" />
                       </template>
-
+ 
                       <!-- 点击参数 -->
                       <template v-if="step.action === 'click'">
-                        <el-input v-model="step.params.selector" placeholder="元素选择器" size="small" style="width: 250px" />
+                        <el-input v-model="step.params.selector" :placeholder="$t('tasks.createDialog.skills.params.selector')" size="small" style="width: 250px" />
                       </template>
-
+ 
                       <!-- 翻页参数 -->
                       <template v-if="step.action === 'pagination'">
                         <el-select v-model="step.params.action" size="small" style="width: 100px">
-                          <el-option label="下一页" value="next" />
-                          <el-option label="上一页" value="prev" />
+                          <el-option :label="$t('tasks.createDialog.skills.params.next')" value="next" />
+                          <el-option :label="$t('tasks.createDialog.skills.params.prev')" value="prev" />
                         </el-select>
-                        <el-input v-model="step.params.selector" placeholder="按钮选择器(可选)" size="small" style="width: 180px" />
+                        <el-input v-model="step.params.selector" :placeholder="$t('tasks.createDialog.skills.params.btnSelector')" size="small" style="width: 180px" />
                       </template>
-
+ 
                       <!-- 填充参数 -->
                       <template v-if="step.action === 'fill'">
-                        <el-button type="info" plain size="small" @click="addFillPair(index)">添加字段</el-button>
+                        <el-button type="info" plain size="small" @click="addFillPair(index)">{{ $t('tasks.createDialog.skills.params.addField') }}</el-button>
                         <div v-if="Object.keys(step.params.data || {}).length" class="fill-data-preview">
-                          已配置 {{ Object.keys(step.params.data).length }} 个字段
+                          {{ $t('tasks.createDialog.skills.params.fieldsCount', { n: Object.keys(step.params.data).length }) }}
                         </div>
                       </template>
-
+ 
                       <!-- 缩放参数 -->
                       <template v-if="step.action === 'zoom'">
-                        <el-input v-model="step.params.selector" placeholder="容器选择器" size="small" style="width: 150px" />
+                        <el-input v-model="step.params.selector" :placeholder="$t('tasks.createDialog.skills.params.selector')" size="small" style="width: 150px" />
                         <el-select v-model="step.params.direction" size="small" style="width: 80px">
-                          <el-option label="放大" value="in" />
-                          <el-option label="缩小" value="out" />
+                          <el-option :label="$t('tasks.createDialog.skills.params.in')" value="in" />
+                          <el-option :label="$t('tasks.createDialog.skills.params.out')" value="out" />
                         </el-select>
                         <el-input-number v-model="step.params.times" :min="1" :max="10" size="small" style="width: 90px" />
                       </template>
@@ -618,10 +618,10 @@
 
                        <!-- 提取配置技能 -->
                        <template v-if="step.action === 'block_container'">
-                         <el-input v-model="step.params.selector" placeholder="块状容器选择器 (如 .card-item)" size="small" style="width: 250px" />
+                         <el-input v-model="step.params.selector" :placeholder="$t('tasks.createDialog.skills.params.blockSelector')" size="small" style="width: 250px" />
                        </template>
                        <template v-if="step.action === 'exclude_elements'">
-                         <el-input v-model="step.params.selectors" placeholder="排除元素选择器 (用分号分隔)" size="small" style="width: 350px" />
+                         <el-input v-model="step.params.selectors" :placeholder="$t('tasks.createDialog.skills.params.excludeSelectors')" size="small" style="width: 350px" />
                        </template>
                      </div>
 
@@ -632,82 +632,82 @@
                 </div>
 
                 <div v-else class="agent-disabled-placeholder mini">
-                  <p>添加交互步骤，在大规模抓取前执行预置操作</p>
-                  <el-button type="primary" plain size="small" @click="addInteractionStep">添加第一个步骤</el-button>
+                  <p>{{ $t('tasks.createDialog.skills.desc') }}</p>
+                  <el-button type="primary" plain size="small" @click="addInteractionStep">{{ $t('tasks.createDialog.skills.firstStep') }}</el-button>
                 </div>
               </div>
             </el-tab-pane>
           </el-tabs>
         </div>
       </el-form>
-
+ 
       <template #footer>
         <div class="bento-footer">
-          <el-button @click="showScrapeDialog = false" round>取消</el-button>
+          <el-button @click="showScrapeDialog = false" round>{{ $t('tasks.createDialog.cancel') }}</el-button>
           <el-button type="primary" @click="submitTask" :loading="loading" class="bento-submit" round>
             <el-icon><Promotion /></el-icon>
-            <span>立即投递任务</span>
+            <span>{{ $t('tasks.createDialog.submit') }}</span>
           </el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- 任务详情对话框 -->
-    <el-dialog v-model="showTaskDialog" title="任务详情" width="900px" top="5vh">
+    <el-dialog v-model="showTaskDialog" :title="$t('tasks.detail.title')" width="900px" top="5vh">
       <div v-if="currentTask" class="task-details">
         <el-tabs v-model="activeTab">
-          <el-tab-pane label="基本信息" name="info">
+          <el-tab-pane :label="$t('tasks.detail.tabs.info')" name="info">
             <el-descriptions :column="2" border size="default" class="detail-descriptions">
-              <el-descriptions-item label="任务 ID">{{ currentTask.task_id }}</el-descriptions-item>
-              <el-descriptions-item label="当前状态">
+              <el-descriptions-item :label="$t('tasks.detail.info.id')">{{ currentTask.task_id }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('tasks.detail.info.status')">
                 <el-tag :type="getStatusType(currentTask.status)" size="default">{{ getStatusText(currentTask.status) }}</el-tag>
               </el-descriptions-item>
-              <el-descriptions-item label="目标 URL" :span="2">
+              <el-descriptions-item :label="$t('tasks.detail.info.url')" :span="2">
                 <el-link :href="currentTask.url" target="_blank" type="primary" class="detail-url-link">{{ currentTask.url }}</el-link>
               </el-descriptions-item>
-              <el-descriptions-item label="创建时间">{{ formatDate(currentTask.created_at) }}</el-descriptions-item>
-              <el-descriptions-item label="完成时间">{{ formatDate(currentTask.completed_at) || '-' }}</el-descriptions-item>
-               <el-descriptions-item label="缓存命中">
+              <el-descriptions-item :label="$t('tasks.detail.info.created')">{{ formatDate(currentTask.created_at) }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('tasks.detail.info.completed')">{{ formatDate(currentTask.completed_at) || '-' }}</el-descriptions-item>
+               <el-descriptions-item :label="$t('tasks.detail.info.cache')">
                 <el-tag :type="currentTask.cached ? 'success' : 'info'" size="default">
-                  {{ currentTask.cached ? '命中' : '未命中' }}
+                  {{ currentTask.cached ? $t('tasks.detail.info.hit') : $t('tasks.detail.info.miss') }}
                 </el-tag>
               </el-descriptions-item>
-              <el-descriptions-item label="节点 ID">{{ currentTask.node_id || '-' }}</el-descriptions-item>
-              <el-descriptions-item label="代理记录" v-if="currentTask.params?.proxy" :span="2">
+              <el-descriptions-item :label="$t('tasks.detail.info.node')">{{ currentTask.node_id || '-' }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('tasks.detail.info.proxy')" v-if="currentTask.params?.proxy" :span="2">
                 <div class="proxy-info-detail">
                   <div class="proxy-line">
-                    <span class="p-label">服务器:</span>
+                    <span class="p-label">{{ $t('tasks.detail.info.server') }}</span>
                     <el-tag type="warning" effect="plain" size="small">
                       <el-icon><Connection /></el-icon> {{ currentTask.params.proxy.server }}
                     </el-tag>
                   </div>
                   <div class="proxy-line" v-if="currentTask.params.proxy.username">
-                    <span class="p-label">用户名:</span>
+                    <span class="p-label">{{ $t('tasks.detail.info.user') }}</span>
                     <code class="p-user">{{ currentTask.params.proxy.username }}</code>
                   </div>
                 </div>
               </el-descriptions-item>
             </el-descriptions>
-
+ 
             <div v-if="currentTask.result" class="metadata-section">
-              <el-divider content-position="left">页面元数据</el-divider>
+              <el-divider content-position="left">{{ $t('tasks.detail.metadata.title') }}</el-divider>
               <el-descriptions :column="2" border size="default" class="detail-descriptions">
-                <el-descriptions-item label="页面标题" :span="2" width="120px">{{ currentTask.result.metadata?.title || '-' }}</el-descriptions-item>
-                <el-descriptions-item label="实际 URL" :span="2" v-if="currentTask.result.metadata?.actual_url">
+                <el-descriptions-item :label="$t('tasks.detail.metadata.pageTitle')" :span="2" width="120px">{{ currentTask.result.metadata?.title || '-' }}</el-descriptions-item>
+                <el-descriptions-item :label="$t('tasks.detail.metadata.actualUrl')" :span="2" v-if="currentTask.result.metadata?.actual_url">
                   <el-link :href="currentTask.result.metadata.actual_url" target="_blank" type="success" class="detail-url-link">
                     {{ currentTask.result.metadata.actual_url }}
                   </el-link>
                 </el-descriptions-item>
-                <el-descriptions-item label="加载用时">
+                <el-descriptions-item :label="$t('tasks.detail.metadata.loadTime')">
                   <el-tag type="warning" effect="plain" size="default">
                     {{ currentTask.result.metadata?.load_time?.toFixed(2) }}s
                   </el-tag>
                 </el-descriptions-item>
               </el-descriptions>
             </div>
-
+ 
             <div v-if="currentTask.error" class="error-section">
-              <el-divider content-position="left">错误详情</el-divider>
+              <el-divider content-position="left">{{ $t('tasks.detail.error') }}</el-divider>
               <el-alert :title="currentTask.error.message" type="error" :closable="false" show-icon>
                 <template #default>
                   <pre class="error-stack">{{ currentTask.error.stack }}</pre>
@@ -715,20 +715,20 @@
               </el-alert>
             </div>
           </el-tab-pane>
-
-          <el-tab-pane label="拦截数据" name="intercept" v-if="currentTask.result?.intercepted_apis">
+ 
+          <el-tab-pane :label="$t('tasks.detail.tabs.intercept')" name="intercept" v-if="currentTask.result?.intercepted_apis">
             <div v-for="(requests, pattern) in currentTask.result.intercepted_apis" :key="pattern" class="intercept-group">
               <div class="pattern-header">
-                <el-tag size="small">模式: {{ pattern }}</el-tag>
-                <span class="count">共 {{ requests.length }} 条记录</span>
+                <el-tag size="small">{{ $t('tasks.detail.intercept.pattern', { pattern: pattern }) }}</el-tag>
+                <span class="count">{{ $t('tasks.detail.intercept.count', { count: requests.length }) }}</span>
               </div>
               <el-collapse>
                 <el-collapse-item v-for="(req, index) in requests" :key="index" :title="`${req.method} ${req.url.substring(0, 80)}...`">
                   <div class="req-detail">
-                    <p><strong>完整 URL:</strong> {{ req.url }}</p>
-                    <p><strong>状态码:</strong> <el-tag :type="req.status < 400 ? 'success' : 'danger'" size="small">{{ req.status }}</el-tag></p>
-                    <div class="json-box">
-                      <strong>响应内容:</strong>
+                    <p><strong>{{ $t('tasks.detail.intercept.fullUrl') }}</strong> {{ req.url }}</p>
+                    <p><strong>{{ $t('tasks.detail.intercept.status') }}</strong> <el-tag :type="req.status < 400 ? 'success' : 'danger'" size="small">{{ req.status }}</el-tag></p>
+                    <div class json-box>
+                      <strong>{{ $t('tasks.detail.intercept.content') }}</strong>
                       <pre>{{ formatJSON(req.content) }}</pre>
                     </div>
                   </div>
@@ -736,8 +736,8 @@
               </el-collapse>
             </div>
           </el-tab-pane>
-
-          <el-tab-pane label="截图预览" name="screenshot" v-if="currentTask.result?.screenshot">
+ 
+          <el-tab-pane :label="$t('tasks.detail.tabs.screenshot')" name="screenshot" v-if="currentTask.result?.screenshot">
             <div class="screenshot-container">
               <el-image 
                 :src="'data:image/png;base64,' + currentTask.result.screenshot" 
@@ -752,41 +752,41 @@
               </el-image>
             </div>
           </el-tab-pane>
-
-          <el-tab-pane label="HTML 源码" name="html" v-if="currentTask.result?.html">
+ 
+          <el-tab-pane :label="$t('tasks.detail.tabs.html')" name="html" v-if="currentTask.result?.html">
             <div class="html-container">
               <pre><code>{{ currentTask.result.html }}</code></pre>
             </div>
           </el-tab-pane>
-
-          <el-tab-pane label="Agent识别" name="agent" v-if="currentTask.result?.agent_result">
+ 
+          <el-tab-pane :label="$t('tasks.detail.tabs.agent')" name="agent" v-if="currentTask.result?.agent_result">
             <div class="agent-result-section">
               <!-- 状态概览 -->
               <el-descriptions :column="3" border size="small" class="agent-status-desc">
-                <el-descriptions-item label="识别状态">
+                <el-descriptions-item :label="$t('tasks.detail.agent.status')">
                   <el-tag :type="getAgentStatusType(currentTask.result.agent_result.status)" effect="dark">
                     {{ getAgentStatusText(currentTask.result.agent_result.status) }}
                   </el-tag>
                 </el-descriptions-item>
-                <el-descriptions-item label="使用模型">
+                <el-descriptions-item :label="$t('tasks.detail.agent.model')">
                   <span v-if="currentTask.result.agent_result.model_name">{{ currentTask.result.agent_result.model_name }}</span>
                   <code v-else-if="currentTask.result.agent_result.model_id" style="font-size: 12px; color: #64748b;">{{ currentTask.result.agent_result.model_id }}</code>
                   <span v-else>-</span>
                 </el-descriptions-item>
-                <el-descriptions-item label="处理耗时">
+                <el-descriptions-item :label="$t('tasks.detail.agent.duration')">
                   <el-tag type="warning" effect="plain" v-if="currentTask.result.agent_result.processing_time">
                     {{ currentTask.result.agent_result.processing_time.toFixed(2) }}s
                   </el-tag>
                   <span v-else>-</span>
                 </el-descriptions-item>
-                <el-descriptions-item label="并行模式" v-if="currentTask.result.agent_result.parallel_info">
+                <el-descriptions-item :label="$t('tasks.detail.agent.parallel')" v-if="currentTask.result.agent_result.parallel_info">
                   <el-tag type="success" size="small" effect="plain">
-                    {{ currentTask.result.agent_result.parallel_info.chunks }} 分块
-                    (批次: {{ currentTask.result.agent_result.parallel_info.batch_size }})
+                    {{ $t('tasks.detail.agent.chunks', { n: currentTask.result.agent_result.parallel_info.chunks }) }}
+                    ({{ $t('tasks.detail.agent.batch', { n: currentTask.result.agent_result.parallel_info.batch_size }) }})
                   </el-tag>
                 </el-descriptions-item>
               </el-descriptions>
-
+ 
               <!-- Token 使用量 -->
               <div v-if="currentTask.result.agent_result.token_usage" class="token-usage-row">
                 <el-tag type="info" effect="plain" size="small">
@@ -796,7 +796,7 @@
                   Completion: {{ currentTask.result.agent_result.token_usage.completion_tokens || 0 }}
                 </el-tag>
                 <el-tag type="primary" effect="plain" size="small">
-                  Total: {{ currentTask.result.agent_result.token_usage.total_tokens || 0 }} tokens
+                  {{ $t('tasks.detail.agent.tokens') }}: {{ currentTask.result.agent_result.token_usage.total_tokens || 0 }} tokens
                 </el-tag>
               </div>
 

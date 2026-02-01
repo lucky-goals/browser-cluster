@@ -1,4 +1,11 @@
 {
+    "common": {
+        "confirm": "確認",
+        "cancel": "キャンセル",
+        "tip": "ヒント",
+        "save": "保存",
+        "delete": "削除"
+    },
     "menu": {
         "home": "ホーム",
         "tasks": "タスク管理",
@@ -18,11 +25,6 @@
         "logout": "ログアウト",
         "profile": "個人設定"
     },
-    "stats": {
-        "today": "今日の統計",
-        "success": "成功",
-        "failed": "失敗"
-    },
     "profile": {
         "title": "プロファイル設定",
         "username": "ユーザー名",
@@ -41,40 +43,568 @@
         "archSubtitle": "安定、信頼、拡張可能な分散型アーキテクチャ",
         "features": {
             "cluster": "分散クラスタ",
-            "clusterDesc": "マルチノードの水平スケーリングをサポートし、高負荷に対応します。",
-            "stealth": "ステルスレンダリング",
-            "stealthDesc": "Stealth プラグインを内蔵し、ボット検知を効果的に回避します。",
-            "cache": "効率的なキャッシュ",
-            "cacheDesc": "Redis ベースのキャッシュにより、重複した取得コストを大幅に削減します。",
-            "interceptor": "API インターセプション",
-            "interceptorDesc": "レンダリング中に特定の API データをインターセプトして抽出します。",
-            "monitor": "多次元モニタリング",
-            "monitorDesc": "成功率、ロード時間、ノードの状態をリアルタイムで統計します。",
-            "optimize": "リソース最適化",
-            "optimizeDesc": "画像やメディアをオンデマンドでブロックし、レンダリングを高速化します。"
+            "clusterDesc": "Worker ノードを水平方向に拡張し、数百万のタスクを容易に処理します。",
+            "stealth": "高度なステルスモード",
+            "stealthDesc": "指紋偽装とアンチ検出を内蔵し、あらゆるクローラ対策を回避します。",
+            "cache": "インテリジェントキャッシュ",
+            "cacheDesc": "Redis/MongoDB の二重キャッシュにより、重複リクエストにミリ秒単位で応答します。",
+            "interceptor": "動的プロキシプール",
+            "interceptorDesc": "SOCKS5/HTTP プロキシに対応し、自動テストとフェイルオーバーを実現します。",
+            "monitor": "包括的なモニタリング",
+            "monitorDesc": "可視化されたダッシュボードで、負荷、成功率、遅延をリアルタイムに把握します。",
+            "optimize": "究極のパフォーマンス最適化",
+            "optimizeDesc": "非同期非ブロッキングアーキテクチャにより、低リソースかつ高並列を実現します。"
+        },
+        "arch": {
+            "gateway": {
+                "title": "統合ゲートウェイ",
+                "desc": "FastAPI ベースの高性能非同期 API。認証、流量制限、スケジューリングを提供します。"
+            },
+            "queue": {
+                "title": "タスクキュー",
+                "desc": "RabbitMQ による負荷分散。高負荷時でもシステムの安定性と確実な配信を保証します。"
+            },
+            "cluster": {
+                "title": "ブラウザクラスタ",
+                "desc": "分散型 Playwright ノード。ステルスモード、指紋偽装、動的スケーリングをサポート。"
+            },
+            "persistence": {
+                "title": "データ永続化",
+                "desc": "MongoDB による完全な監査トレースと、Redis による超高速な結果キャッシュを提供します。"
+            }
         }
     },
     "tasks": {
         "title": "タスク管理",
+        "subtitle": "自動スクレイピングタスクのリアルタイム監視と管理",
         "createTask": "新規タスク",
-        "refresh": "更新",
         "batchDelete": "一括削除",
-        "searchPlaceholder": "タスク ID または URL で検索",
+        "refresh": "更新",
+        "searchPlaceholder": "タスク ID または URL で検索...",
         "status": {
-            "all": "すべてのステータス",
+            "all": "すべての状態",
             "pending": "待機中",
-            "running": "実行中",
+            "running": "処理中",
             "success": "成功",
             "failed": "失敗"
         },
         "columns": {
             "id": "タスク ID",
             "target": "ターゲット URL",
+            "status": "状態",
+            "stats": "実行統計",
+            "timeline": "タイムライン",
+            "actions": "操作",
+            "actualUrl": "実際のアクセス"
+        },
+        "stats": {
+            "duration": "所要時間:",
+            "cache": "キャッシュ:",
+            "node": "ノード:",
+            "cacheHit": "ヒット",
+            "cacheSkip": "スキップ",
+            "created": "作成:",
+            "completed": "完了:",
+            "totalDuration": "総実行時間",
+            "loadDuration": "ページ読み込み時間"
+        },
+        "createDialog": {
+            "title": "新規スクレイピングタスク",
+            "basic": "基本設定",
+            "targetUrl": "ターゲット URL",
+            "priority": "タスク優先度",
+            "priorityHigh": "最高 (10)",
+            "priorityNormal": "通常 (5)",
+            "priorityLow": "最低 (1)",
+            "cache": "データキャッシュ",
+            "cacheDisabled": "強制再取得",
+            "advanced": "詳細オプション",
+            "waitFor": "待機条件",
+            "emulation": "環境エミュレーション",
+            "stealth": "アンチ検出",
+            "screenshot": "自動スクリーンショット",
+            "fullPage": "全画面スクリーンショット",
+            "noImage": "画像なしモード",
+            "cancel": "キャンセル",
+            "submit": "今すぐ開始"
+        },
+        "messages": {
+            "deleteConfirm": "タスクを削除しますか？",
+            "batchDeleteConfirm": "これらの {n} 個のタスクを一括削除しますか？",
+            "retryConfirm": "タスクを再実行しますか？",
+            "copySuccess": "クリップボードにコピーしました",
+            "scrapeStarted": "スクレイピングタスクが公開されました",
+            "retryStarted": "タスクを再公開しました",
+            "deleteSuccess": "タスクが削除されました"
+        }
+    },
+    "nodes": {
+        "title": "ノード管理",
+        "subtitle": "分散ブラウザノードとその状態の管理",
+        "addNode": "ノードを追加",
+        "editNode": "ノードを編集",
+        "nodeId": "ノード ID",
+        "queueName": "タスクキュー",
+        "maxConcurrent": "最大同時実行数",
+        "taskCount": "タスク総数",
+        "status": "実行状態",
+        "lastSeen": "最終オンライン",
+        "actions": "操作",
+        "start": "起動",
+        "stop": "停止",
+        "edit": "編集",
+        "logs": "ログ",
+        "delete": "削除",
+        "logTitle": "ノードログ",
+        "autoScroll": "自動スクロール",
+        "reconnect": "再接続",
+        "nodeIdPlaceholder": "例: worker-01",
+        "queuePlaceholder": "task_queue",
+        "restartWarning": "ノードが実行中です。最大同時実行数を変更すると、ノードが自動的に再起動されます。",
+        "stopAdvice": "ノードが停止している状態での変更を推奨します。",
+        "getNodesFailed": "ノードリストの取得に失敗しました",
+        "updateSuccess": "更新に成功しました",
+        "addSuccess": "追加に成功しました",
+        "operationFailed": "操作に失敗しました",
+        "startSuccess": "ノード {id} が正常に起動しました",
+        "startFailed": "起動に失敗しました",
+        "stopSuccess": "ノード {id} が停止しました",
+        "stopFailed": "停止に失敗しました",
+        "deleteConfirm": "ノード {id} を削除してもよろしいですか？実行中の場合は停止されます。",
+        "deleteSuccess": "削除に成功しました",
+        "deleteFailed": "削除に失敗しました",
+        "noLogs": "ログがないか、読み込み中です..."
+    },
+    "users": {
+        "title": "ユーザー管理",
+        "subtitle": "システムアクセスアカウントと権限の管理",
+        "addUser": "新規ユーザー",
+        "editUser": "ユーザーを編集",
+        "username": "ユーザー名",
+        "password": "パスワード",
+        "role": "役割",
+        "createdAt": "作成日時",
+        "updatedAt": "更新日時",
+        "actions": "操作",
+        "edit": "編集",
+        "delete": "削除",
+        "admin": "管理者",
+        "user": "一般ユーザー",
+        "passwordPlaceholder": "パスワードを入力してください",
+        "usernamePlaceholder": "ユーザー名を入力してください",
+        "rolePlaceholder": "役割を選択してください",
+        "passwordTip": "空欄の場合はパスワードを変更しません",
+        "getUsersFailed": "ユーザーリストの取得に失敗しました",
+        "deleteConfirm": "ユーザー \"{username}\" を削除してもよろしいですか？",
+        "deleteSuccess": "削除に成功しました",
+        "deleteFailed": "削除に失敗しました",
+        "updateSuccess": "更新に成功しました",
+        "createSuccess": "作成に成功しました",
+        "operationFailed": "操作に失敗しました"
+    },
+    "proxies": {
+        "title": "プロキシプール管理",
+        "subtitle": "プロキシサーバークラスターの管理、アカウント認証と接続テストのサポート",
+        "searchPlaceholder": "名前またはサーバーで検索...",
+        "addProxy": "プロキシを追加",
+        "editProxy": "プロキシ設定を編集",
+        "refresh": "更新",
+        "name": "名前/識別子",
+        "server": "サーバアドレス",
+        "location": "国/都市",
+        "sessionType": "セッション方式",
+        "isEnabled": "有効",
+        "actions": "操作",
+        "test": "接続テスト",
+        "edit": "編集",
+        "delete": "削除",
+        "unknownLocation": "不明",
+        "stickyIP": "固定 IP",
+        "randomIP": "ランダム IP",
+        "protocol": "プロトコル",
+        "username": "ユーザー名 (任意)",
+        "password": "パスワード (任意)",
+        "authPlaceholder": "空欄の場合は認証を使用しません",
+        "passwordHint": "空欄の場合は更新しません",
+        "locationPlaceholder": "例: アメリカ ロサンゼルス",
+        "namePlaceholder": "例: US-LA-01",
+        "save": "保存",
+        "create": "作成",
+        "getProxiesFailed": "プロキシリストの取得に失敗しました",
+        "fillRequired": "必須項目（名前とサーバアドレス）を入力してください",
+        "updateSuccess": "プロキシ設定が更新されました",
+        "createSuccess": "プロキシ設定が作成されました",
+        "toggleSuccess": "{name} が{status}になりました",
+        "enabled": "有効",
+        "disabled": "無効",
+        "toggleFailed": "ステータスの更新に失敗しました",
+        "deleteConfirm": "プロキシ \"{name}\" を削除してもよろしいですか？この操作は取り消せません。",
+        "deleteConfirmTitle": "削除の確認",
+        "deleteBtn": "削除",
+        "testSuccess": "テスト合格！遅延: {latency}秒, ステータスコード: {code}",
+        "testFailed": "テスト失敗: {message}",
+        "testCallFailed": "テストリクエストの開始に失敗しました"
+    },
+    "llmModels": {
+        "title": "モデル設定",
+        "subtitle": "Agent インテリジェント抽出用の LLM 設定管理",
+        "addModel": "モデルを追加",
+        "refresh": "更新",
+        "columns": {
+            "name": "モデル名",
+            "id": "モデル識別子",
+            "baseUrl": "API アドレス",
+            "vision": "ビジョン",
+            "stream": "ストリーム",
+            "retries": "最大リトライ",
             "status": "ステータス",
-            "duration": "所要時間",
-            "nodes": "実行先ノード",
+            "actions": "操作"
+        },
+        "status": {
+            "enabled": "有効",
+            "disabled": "無効"
+        },
+        "vision": {
+            "yes": "サポート",
+            "no": "いいえ"
+        },
+        "stream": {
+            "yes": "サポート",
+            "no": "いいえ"
+        },
+        "isDefault": "デフォルト",
+        "tooltips": {
+            "test": "接続テスト",
+            "edit": "編集",
+            "delete": "削除"
+        },
+        "dialog": {
+            "editTitle": "モデル設定を編集",
+            "createTitle": "モデル設定を追加",
+            "name": "モデル名",
+            "namePlaceholder": "例：GPT-4o",
+            "provider": "プロバイダー",
+            "id": "モデル識別子",
+            "idPlaceholder": "例：gpt-4o, claude-3-opus-20240229",
+            "baseUrl": "API アドレス",
+            "apiKey": "API キー",
+            "apiKeyPlaceholder": "空欄の場合は更新されません",
+            "temperature": "Temperature",
+            "maxTokens": "Max Tokens",
+            "retries": "最大リトライ回数",
+            "vision": "ビジョンサポート",
+            "stream": "ストリームサポート",
+            "isDefault": "デフォルトに設定",
+            "isEnabled": "有効状態",
+            "save": "保存",
+            "create": "作成"
+        },
+        "messages": {
+            "loadFailed": "モデルリストの取得に失敗しました: ",
+            "fillRequired": "必須項目を入力してください",
+            "updateSuccess": "モデル設定が更新されました",
+            "createSuccess": "モデル設定が作成されました",
+            "operationFailed": "操作に失敗しました: ",
+            "deleteConfirm": "モデル \"{name}\" を削除してもよろしいですか？この操作は取り消せません。",
+            "deleteTitle": "削除の確認",
+            "deleteSuccess": "削除に成功しました",
+            "deleteFailed": "削除に失敗しました: ",
+            "testSuccess": "接続成功！応答時間: {latency}ms",
+            "testFailed": "接続失敗: {message}",
+            "testCallFailed": "テストに失敗しました: "
+        }
+    },
+    "promptTemplates": {
+        "title": "プロンプトテンプレート",
+        "addTemplate": "テンプレートを新規作成",
+        "searchPlaceholder": "テンプレート名または内容で検索...",
+        "refresh": "更新",
+        "columns": {
+            "name": "テンプレート名",
+            "preview": "内容プレビュー",
+            "description": "説明",
+            "creator": "作成者",
+            "updatedAt": "更新日時",
+            "actions": "操作"
+        },
+        "actions": {
+            "edit": "編集",
+            "delete": "削除"
+        },
+        "dialog": {
+            "editTitle": "テンプレートを編集",
+            "createTitle": "テンプレートを新規作成",
+            "name": "名称",
+            "namePlaceholder": "テンプレート名を入力してください",
+            "description": "説明",
+            "descriptionPlaceholder": "任意：テンプレートの用途を簡単に説明",
+            "systemRole": "システムロール",
+            "systemRoleTip": "AI Agent のシステムロールまたはプリセット命令を定義するために使用 (role: system)",
+            "systemRolePlaceholder": "任意：システムロールの内容を入力してください (System Prompt)",
+            "extractRequest": "抽出要件",
+            "extractRequestTip": "具体的なデータ抽出要件とフォーマット説明 (role: user)",
+            "extractRequestPlaceholder": "抽出要件のプロンプトを入力してください",
+            "save": "保存"
+        },
+        "messages": {
+            "nameRequired": "テンプレート名を入力してください",
+            "contentRequired": "プロンプトの内容を入力してください",
+            "loadFailed": "テンプレートの読み込みに失敗しました",
+            "updateSuccess": "更新に成功しました",
+            "createSuccess": "作成に成功しました",
+            "updateFailed": "更新に失敗しました: ",
+            "createFailed": "作成に失敗しました: ",
+            "deleteConfirm": "テンプレート \"{name}\" を削除してもよろしいですか？この操作は取り消せません。",
+            "deleteTitle": "削除の確認",
+            "deleteSuccess": "削除に成功しました",
+            "deleteFailed": "削除に失敗しました: "
+        }
+    },
+    "skills": {
+        "title": "技能管理",
+        "subtitle": "ブラウザ操作および抽出技能の管理と拡張",
+        "addSkill": "技能を追加",
+        "refresh": "更新",
+        "columns": {
+            "name": "技能名",
+            "id": "識別子",
+            "type": "タイプ",
+            "attr": "属性",
+            "status": "ステータス",
+            "actions": "操作"
+        },
+        "types": {
+            "extraction": "データ抽出",
+            "interaction": "操作ログ"
+        },
+        "attrs": {
+            "builtin": "内蔵",
+            "custom": "カスタム"
+        },
+        "actions": {
+            "edit": "編集",
+            "delete": "削除"
+        },
+        "dialog": {
+            "editTitle": "技能を編集",
+            "createTitle": "技能を追加",
+            "id": "名称 (識別子)",
+            "idPlaceholder": "例: extract_prices",
+            "name": "表示名",
+            "namePlaceholder": "例: 価格を抽出",
+            "type": "技能タイプ",
+            "interaction": "操作ログ (Interaction)",
+            "extraction": "データ抽出 (Extraction)",
+            "isEnabled": "有効状態",
+            "description": "説明",
+            "descriptionPlaceholder": "技能の用途を簡単に説明...",
+            "jsCode": "JavaScript コード",
+            "jsPlaceholder": "// JavaScript コード...\n// 抽出タイプの場合、最後に値を return する必要があります\n// 例：\n// return { title: document.title, url: window.location.href };",
+            "tip": "コードはブラウザ環境で実行され、`document`、`window` などのオブジェクトを使用できます。抽出技能の場合は、最後に `return` を使用して結果を返すようにしてください。",
+            "confirm": "確定"
+        },
+        "messages": {
+            "loadFailed": "技能リストの読み込みに失敗しました",
+            "fillRequired": "必須項目を入力してください",
+            "updateSuccess": "更新に成功しました",
+            "createSuccess": "作成に成功しました",
+            "saveFailed": "保存に失敗しました: ",
+            "toggleSuccess": "ステータスの更新に成功しました",
+            "toggleFailed": "ステータスの更新に失敗しました",
+            "deleteConfirm": "この技能を削除してもよろしいですか？",
+            "deleteConfirmTitle": "ヒント",
+            "deleteSuccess": "削除に成功しました",
+            "deleteFailed": "削除に失敗しました"
+        }
+    },
+    "skillBundles": {
+        "title": "技能パック管理",
+        "subtitle": "複数の技能を組み合わせて、異なるタイプのページに合わせてスクレイピングプランをカスタマイズ",
+        "addBundle": "技能パックを新規作成",
+        "refresh": "更新",
+        "columns": {
+            "name": "技能パック名",
+            "description": "説明",
+            "steps": "含まれるステップ",
             "createdAt": "作成日時",
             "actions": "操作"
+        },
+        "stepsCount": "{n} ステップ",
+        "actions": {
+            "edit": "編集",
+            "delete": "削除"
+        },
+        "dialog": {
+            "editTitle": "技能パックを編集",
+            "createTitle": "技能パックを新規作成",
+            "name": "技能パック名",
+            "namePlaceholder": "例: 不動産検索結果抽出パック",
+            "description": "説明",
+            "descriptionPlaceholder": "この技能パックの適用シナリオを簡単に説明...",
+            "stepsConfig": "外部ステップ設定",
+            "addStep": "ステップを追加",
+            "stepIndex": "ステップ {n}",
+            "remove": "削除",
+            "actionType": "アクションタイプ",
+            "wait": {
+                "title": "待機パラメータ",
+                "duration": "待機時間 (ms)"
+            },
+            "scroll": {
+                "title": "スクロールパラメータ",
+                "container": "コンテナセレクタ (デフォルト window)",
+                "containerPlaceholder": "例: .scroll-container",
+                "distance": "スクロール距離 (px)"
+            },
+            "click": {
+                "title": "クリックパラメータ",
+                "target": "ターゲットセレクタ",
+                "targetPlaceholder": "例: #submit-btn"
+            },
+            "infiniteScroll": {
+                "title": "無限スクロールパラメータ",
+                "container": "コンテナセレクタ (デフォルト window)",
+                "containerPlaceholder": "例: .content",
+                "maxScrolls": "最大回数",
+                "delay": "遅延 (ms)"
+            },
+            "pagination": {
+                "title": "改ページパラメータ",
+                "action": "改ページアクション",
+                "next": "次へ",
+                "prev": "前へ",
+                "btnPlaceholder": "例: .next-page-btn"
+            },
+            "zoom": {
+                "title": "ズームパラメータ",
+                "container": "コンテナセレクタ",
+                "containerPlaceholder": "マップコンテナセレクタ",
+                "direction": "方向",
+                "in": "拡大",
+                "out": "縮小",
+                "times": "回数"
+            },
+            "fill": {
+                "title": "入力パラメータ",
+                "addField": "フィールドを追加",
+                "fieldsCount": "{n} フィールド設定済み"
+            },
+            "extractCoordinates": {
+                "noParams": "この技能には追加パラメータは不要です"
+            },
+            "blockContainer": {
+                "title": "ブロックコンテナパラメータ",
+                "placeholder": "例: .card-item"
+            },
+            "excludeElements": {
+                "title": "除外要素パラメータ",
+                "placeholder": "例: .ad-banner; #footer; .popup"
+            },
+            "advanced": {
+                "json": "拡張パラメータ (JSON形式)"
+            },
+            "empty": "ステップがありません。上の「ステップを追加」ボタンをクリックして設定を開始してください",
+            "confirm": "保存を確定"
+        },
+        "messages": {
+            "loadFailed": "技能パックの読み込みに失敗しました",
+            "jsonError": "ステップ {n} のパラメータ形式エラー",
+            "promptPayload": "フィールドセレクタと内容を入力してください (形式: selector=value)",
+            "addFieldTitle": "フォームフィールドを追加",
+            "formatError": "形式エラー、selector=value を使用してください",
+            "nameRequired": "技能パック名を入力してください",
+            "updateSuccess": "更新に成功しました",
+            "createSuccess": "作成に成功しました",
+            "saveFailed": "保存に失敗しました",
+            "deleteConfirm": "この技能パックを削除してもよろしいですか？",
+            "deleteConfirmTitle": "ヒント",
+            "deleteSuccess": "削除に成功しました",
+            "deleteFailed": "削除に失敗しました"
         }
+    },
+    "stats": {
+        "title": "統計センター",
+        "subtitle": "システム運行データの可視化分析",
+        "cards": {
+            "todayTotal": "今日のタスク総数",
+            "successRate": "正常に処理済み",
+            "failedCount": "失敗した記録",
+            "avgDuration": "平均応答時間",
+            "trendTip": "昨日比"
+        },
+        "charts": {
+            "taskAnalysis": "タスク処理分析",
+            "today": "今日",
+            "week": "直近1週間",
+            "legend": {
+                "success": "成功",
+                "failed": "失敗",
+                "total": "合計"
+            }
+        },
+        "queue": {
+            "title": "リアルタイムキューの状態",
+            "total": "現在の待機総数",
+            "pending": "待機中",
+            "processing": "処理中",
+            "success": "完了済み",
+            "failed": "失敗"
+        }
+    },
+    "configs": {
+        "title": "システム設定",
+        "subtitle": "システムの実行パラメータとデフォルトの取得設定の管理",
+        "systemLogs": "システムログ",
+        "restart": "強制再起動",
+        "addConfig": "設定を追加",
+        "refresh": "更新",
+        "restartNeeded": "設定が変更されました",
+        "restartDesc": "一部の設定変更を有効にするには、システムの再起動が必要です。「強制再起動」ボタンをクリックしてください。",
+        "restartNow": "今すぐ再起動",
+        "searchPlaceholder": "設定キー、値、または説明で検索...",
+        "key": "設定キー (Key)",
+        "value": "設定値 (Value)",
+        "description": "説明",
+        "lastUpdated": "最終更新",
+        "actions": "操作",
+        "systemDefault": "システムデフォルト",
+        "configured": "設定済み",
+        "defaultHint": "現在システムデフォルトを使用しています。編集をクリックしてカスタマイズできます",
+        "noDescription": "説明なし",
+        "edit": "編集",
+        "delete": "削除",
+        "noConfigs": "設定項目がありません",
+        "addConfigTitle": "設定項目の追加",
+        "editConfigTitle": "設定項目の編集",
+        "keyPlaceholder": "例: browser.max_tabs",
+        "keyTip": "ドットで区切られた小文字を推奨します。例: browser.timeout",
+        "valuePlaceholder": "設定内容を入力してください。JSON 文字列をサポートしています",
+        "descPlaceholder": "この設定の用途を簡単に説明してください",
+        "save": "設定を保存",
+        "editKeyTip": "設定キーは変更できません",
+        "editValuePlaceholder": "新しい設定内容を入力してください",
+        "editDescPlaceholder": "設定の説明を更新",
+        "submit": "更新を送信",
+        "mainLogs": "システムメインログ",
+        "autoScroll": "自動スクロール",
+        "clearScreen": "画面をクリア",
+        "reconnect": "再接続",
+        "loadingLogs": "ログを読み込み中...",
+        "getConfigsFailed": "設定情報の取得に失敗しました",
+        "restartConfirm": "バックエンドシステムを強制的に再起動してもよろしいですか？再起動中はサービスが一時的に利用できなくなります。",
+        "restartConfirmTitle": "強制再起動の確認",
+        "restartSent": "再起動コマンドが送信されました。後でページを更新してください",
+        "restartFailed": "再起動リクエストに失敗しました",
+        "fillRequired": "必須項目を入力してください",
+        "createSuccess": "設定が作成されました",
+        "createFailed": "設定の作成に失敗しました",
+        "valueRequired": "設定値は空にできません",
+        "updateSuccess": "設定が更新されました",
+        "updateFailed": "設定の更新に失敗しました",
+        "deleteConfirm": "設定項目 \"{key}\" を永続的に削除してもよろしいですか？この操作は取り消せません。",
+        "deleteConfirmTitle": "セキュリティ警告",
+        "deleteSuccess": "設定が削除されました",
+        "deleteFailed": "設定の削除に失敗しました",
+        "copySuccess": "設定値がクリップボードにコピーされました"
     }
 }

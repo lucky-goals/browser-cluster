@@ -308,6 +308,11 @@ export const deleteSkill = async (skillId) => {
   return response.data
 }
 
+export const toggleSkill = async (skillId, isEnabled) => {
+  const response = await api.patch(`/skills/${skillId}`, { is_enabled: isEnabled })
+  return response.data
+}
+
 // Skill Bundles API
 export const getSkillBundles = async (params) => {
   const response = await api.get('/skill-bundles/', { params })

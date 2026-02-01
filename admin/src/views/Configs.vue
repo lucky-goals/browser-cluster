@@ -3,21 +3,21 @@
     <!-- 顶部标题栏 -->
     <div class="page-header">
       <div class="header-left">
-        <h2 class="header-title">系统配置</h2>
-        <p class="header-subtitle">管理系统运行参数及默认抓取设置</p>
+        <h2 class="header-title">{{ $t('configs.title') }}</h2>
+        <p class="header-subtitle">{{ $t('configs.subtitle') }}</p>
       </div>
       <div class="header-actions">
         <el-button type="info" size="large" @click="handleViewSystemLogs" class="action-btn">
-          <el-icon><Document /></el-icon> 系统日志
+          <el-icon><Document /></el-icon> {{ $t('configs.systemLogs') }}
         </el-button>
         <el-button type="danger" size="large" @click="handleRestart" :loading="restarting" class="action-btn">
-          <el-icon><Cpu /></el-icon> 强制重启
+          <el-icon><Cpu /></el-icon> {{ $t('configs.restart') }}
         </el-button>
         <el-button type="primary" size="large" @click="showAddDialog = true" class="action-btn">
-          <el-icon><Plus /></el-icon> 新增配置
+          <el-icon><Plus /></el-icon> {{ $t('configs.addConfig') }}
         </el-button>
         <el-button size="large" @click="loadConfigs" :loading="loading" class="action-btn">
-          <el-icon><Refresh /></el-icon> 刷新
+          <el-icon><Refresh /></el-icon> {{ $t('configs.refresh') }}
         </el-button>
       </div>
     </div>
@@ -25,16 +25,15 @@
     <!-- 重启提示 -->
     <el-alert
       v-if="needsRestart"
-      title="配置已更改"
+      :title="$t('configs.restartNeeded')"
       type="warning"
-      description="部分配置更改需要重启系统才能生效。请点击右上角的“强制重启”按钮。"
       show-icon
       class="restart-alert"
     >
       <template #default>
         <div class="alert-content">
-          <span>部分配置更改需要重启系统才能生效。</span>
-          <el-button type="warning" link @click="handleRestart">立即重启</el-button>
+          <span>{{ $t('configs.restartDesc') }}</span>
+          <el-button type="warning" link @click="handleRestart">{{ $t('configs.restartNow') }}</el-button>
         </div>
       </template>
     </el-alert>
@@ -43,7 +42,7 @@
     <div class="filter-section">
       <el-input
         v-model="searchQuery"
-        placeholder="搜索配置键、值或说明..."
+        :placeholder="$t('configs.searchPlaceholder')"
         class="search-input"
         clearable
       >
@@ -62,20 +61,20 @@
         class="modern-table"
         :header-cell-style="{ background: '#f8fafc', color: '#475569', fontWeight: '600', height: '50px' }"
       >
-        <el-table-column prop="key" label="配置键 (Key)" width="320">
+        <el-table-column prop="key" :label="$t('configs.key')" width="320">
           <template #default="{ row }">
             <div class="key-wrapper">
               <div class="key-icon-bg" :class="{ 'is-schema': row.isSchema && !row.isDynamic }">
                 <el-icon><Setting /></el-icon>
               </div>
               <code class="key-code" :class="{ 'is-schema': row.isSchema && !row.isDynamic }">{{ row.key }}</code>
-              <el-tag v-if="!row.isDynamic" size="small" type="info" effect="plain" class="status-tag">系统默认</el-tag>
-              <el-tag v-else size="small" type="success" effect="plain" class="status-tag">已配置</el-tag>
+              <el-tag v-if="!row.isDynamic" size="small" type="info" effect="plain" class="status-tag">{{ $t('configs.systemDefault') }}</el-tag>
+              <el-tag v-else size="small" type="success" effect="plain" class="status-tag">{{ $t('configs.configured') }}</el-tag>
             </div>
           </template>
         </el-table-column>
         
-        <el-table-column prop="value" label="配置值 (Value)" min-width="300">
+        <el-table-column prop="value" :label="$t('configs.value')" min-width="300">
           <template #default="{ row }">
             <el-tooltip :content="String(row.value)" placement="top" :disabled="String(row.value).length < 60">
               <div class="value-container">
@@ -84,22 +83,22 @@
               </div>
             </el-tooltip>
             <div v-if="!row.isDynamic" class="unconfigured-hint">
-              <el-icon><InfoFilled /></el-icon> 当前使用系统默认值，点击编辑可自定义
+              <el-icon><InfoFilled /></el-icon> {{ $t('configs.defaultHint') }}
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="description" label="说明" min-width="180">
+        <el-table-column prop="description" :label="$t('configs.description')" min-width="180">
           <template #default="{ row }">
              <div class="desc-wrapper">
                <span class="desc-text" :class="{ 'no-desc': !row.description }">
-                 {{ row.description || '暂无说明' }}
+                 {{ row.description || $t('configs.noDescription') }}
                </span>
              </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="updated_at" label="最后更新" width="200" align="center">
+        <el-table-column prop="updated_at" :label="$t('configs.lastUpdated')" width="200" align="center">
           <template #default="{ row }">
             <div class="time-wrapper">
               <el-icon><Timer /></el-icon>
@@ -108,14 +107,14 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="150" fixed="right" align="center">
+        <el-table-column :label="$t('configs.actions')" width="150" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-links">
               <el-button link type="primary" @click="editConfig(row)">
-                <el-icon><Edit /></el-icon> 编辑
+                <el-icon><Edit /></el-icon> {{ $t('configs.edit') }}
               </el-button>
               <el-button link type="danger" @click="confirmDelete(row.key)">
-                <el-icon><Delete /></el-icon> 删除
+                <el-icon><Delete /></el-icon> {{ $t('configs.delete') }}
               </el-button>
             </div>
           </template>
@@ -123,7 +122,7 @@
 
         <!-- 空状态 -->
         <template #empty>
-          <el-empty description="暂无配置项" :image-size="120" />
+          <el-empty :description="$t('configs.noConfigs')" :image-size="120" />
         </template>
       </el-table>
     </div>
@@ -131,32 +130,32 @@
     <!-- 新增配置对话框 -->
     <el-dialog 
       v-model="showAddDialog" 
-      title="新增配置项" 
+      :title="$t('configs.addConfigTitle')" 
       width="600px"
       class="modern-dialog"
       destroy-on-close
     >
       <el-form :model="configForm" label-width="100px" label-position="top">
-        <el-form-item label="配置键 (Key)" required>
-          <el-input v-model="configForm.key" placeholder="例如: browser.max_tabs" />
-          <div class="form-tip">建议使用小写字母和点号分隔，如 browser.timeout</div>
+        <el-form-item :label="$t('configs.key')" required>
+          <el-input v-model="configForm.key" :placeholder="$t('configs.keyPlaceholder')" />
+          <div class="form-tip">{{ $t('configs.keyTip') }}</div>
         </el-form-item>
-        <el-form-item label="配置值 (Value)" required>
+        <el-form-item :label="$t('configs.value')" required>
           <el-input 
             v-model="configForm.value" 
             type="textarea" 
             :rows="4" 
-            placeholder="请输入配置内容，支持 JSON 字符串" 
+            :placeholder="$t('configs.valuePlaceholder')" 
           />
         </el-form-item>
-        <el-form-item label="配置说明">
-          <el-input v-model="configForm.description" placeholder="简单描述该配置的用途" />
+        <el-form-item :label="$t('configs.description')">
+          <el-input v-model="configForm.description" :placeholder="$t('configs.descPlaceholder')" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showAddDialog = false" size="large">取消</el-button>
-          <el-button type="primary" @click="saveConfig" :loading="loading" size="large">保存配置</el-button>
+          <el-button @click="showAddDialog = false" size="large">{{ $t('common.cancel') }}</el-button>
+          <el-button type="primary" @click="saveConfig" :loading="loading" size="large">{{ $t('configs.save') }}</el-button>
         </div>
       </template>
     </el-dialog>
@@ -164,32 +163,32 @@
     <!-- 编辑配置对话框 -->
     <el-dialog 
       v-model="showEditDialog" 
-      title="编辑配置项" 
+      :title="$t('configs.editConfigTitle')" 
       width="600px"
       class="modern-dialog"
       destroy-on-close
     >
       <el-form :model="editForm" label-width="100px" label-position="top">
-        <el-form-item label="配置键 (Key)">
+        <el-form-item :label="$t('configs.key')">
           <el-input v-model="editForm.key" disabled />
-          <div class="form-tip">配置键不可修改</div>
+          <div class="form-tip">{{ $t('configs.keyImmutable') }}</div>
         </el-form-item>
-        <el-form-item label="配置值 (Value)" required>
+        <el-form-item :label="$t('configs.value')" required>
           <el-input 
             v-model="editForm.value" 
             type="textarea" 
             :rows="6" 
-            placeholder="请输入新配置内容" 
+            :placeholder="$t('configs.newValuePlaceholder')" 
           />
         </el-form-item>
-        <el-form-item label="配置说明">
-          <el-input v-model="editForm.description" placeholder="更新配置说明" />
+        <el-form-item :label="$t('configs.description')">
+          <el-input v-model="editForm.description" :placeholder="$t('configs.updateDescPlaceholder')" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showEditDialog = false" size="large">取消</el-button>
-          <el-button type="primary" @click="updateConfig" :loading="loading" size="large">提交更新</el-button>
+          <el-button @click="showEditDialog = false" size="large">{{ $t('common.cancel') }}</el-button>
+          <el-button type="primary" @click="updateConfig" :loading="loading" size="large">{{ $t('configs.submitUpdate') }}</el-button>
         </div>
       </template>
     </el-dialog>
@@ -197,18 +196,18 @@
     <!-- 系统日志抽屉 -->
     <el-drawer
       v-model="logDrawerVisible"
-      title="系统主日志"
+      :title="$t('configs.mainLogs')"
       size="50%"
       @closed="stopLogStream"
       class="log-drawer"
     >
       <div class="log-header">
-        <el-checkbox v-model="autoScroll">自动滚动</el-checkbox>
-        <el-button size="small" @click="logContent = ''">清空屏幕</el-button>
-        <el-button size="small" type="primary" @click="startLogStream">重新连接</el-button>
+        <el-checkbox v-model="autoScroll">{{ $t('configs.autoScroll') }}</el-checkbox>
+        <el-button size="small" @click="logContent = ''">{{ $t('configs.clearScreen') }}</el-button>
+        <el-button size="small" type="primary" @click="startLogStream">{{ $t('configs.reconnect') }}</el-button>
       </div>
       <div class="log-container" ref="logContainer">
-        <pre class="log-content">{{ logContent || '正在加载日志...' }}</pre>
+        <pre class="log-content">{{ logContent || $t('configs.loadingLogs') }}</pre>
       </div>
     </el-drawer>
   </div>
@@ -216,6 +215,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Plus, Refresh, Delete, Setting, Timer, Search, 
@@ -230,6 +230,8 @@ import {
   deleteConfig as deleteConfigApi 
 } from '../api'
 import dayjs from 'dayjs'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const restarting = ref(false)
@@ -319,7 +321,7 @@ const loadConfigs = async () => {
     configs.value = dbData
     schema.value = schemaData
   } catch (error) {
-    ElMessage.error('获取配置信息失败')
+    ElMessage.error(t('configs.getConfigsFailed'))
   } finally {
     loading.value = false
   }
@@ -328,18 +330,18 @@ const loadConfigs = async () => {
 const handleRestart = async () => {
   try {
     await ElMessageBox.confirm(
-      '确定要强制重启后端系统吗？重启期间服务将暂时不可用。',
-      '强制重启确认',
+      t('configs.restartConfirm'),
+      t('configs.restartConfirmTitle'),
       {
-        confirmButtonText: '确定重启',
-        cancelButtonText: '取消',
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       }
     )
     
     restarting.value = true
     await restartSystem()
-    ElMessage.success('重启指令已发送，请稍后刷新页面')
+    ElMessage.success(t('configs.restartSent'))
     needsRestart.value = false
     
     // 延迟几秒后尝试刷新页面
@@ -348,7 +350,7 @@ const handleRestart = async () => {
     }, 3000)
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('重启请求失败')
+      ElMessage.error(t('configs.restartFailed'))
     }
   } finally {
     restarting.value = false
@@ -357,20 +359,20 @@ const handleRestart = async () => {
 
 const saveConfig = async () => {
   if (!configForm.value.key || configForm.value.value === undefined || configForm.value.value === '') {
-    ElMessage.warning('请填写必填项')
+    ElMessage.warning(t('configs.fillRequired'))
     return
   }
   loading.value = true
   try {
     await createConfigApi(configForm.value)
-    ElMessage.success('配置已创建')
+    ElMessage.success(t('configs.createSuccess'))
     showAddDialog.value = false
     needsRestart.value = true
     // 重置表单
     configForm.value = { key: '', value: '', description: '' }
     loadConfigs()
   } catch (error) {
-    ElMessage.error('创建配置失败')
+    ElMessage.error(t('configs.createFailed'))
   } finally {
     loading.value = false
   }
@@ -387,7 +389,7 @@ const editConfig = (row) => {
 
 const updateConfig = async () => {
   if (editForm.value.value === undefined || editForm.value.value === '') {
-    ElMessage.warning('配置值不能为空')
+    ElMessage.warning(t('configs.valueNotEmpty'))
     return
   }
   loading.value = true
@@ -419,12 +421,12 @@ const updateConfig = async () => {
       })
     }
     
-    ElMessage.success('配置已更新')
+    ElMessage.success(t('configs.updateSuccess'))
     showEditDialog.value = false
     needsRestart.value = true
     loadConfigs()
   } catch (error) {
-    ElMessage.error('更新配置失败')
+    ElMessage.error(t('configs.updateFailed'))
   } finally {
     loading.value = false
   }
@@ -432,11 +434,11 @@ const updateConfig = async () => {
 
 const confirmDelete = (key) => {
   ElMessageBox.confirm(
-    `确定要永久删除配置项 "${key}" 吗？此操作不可恢复。`,
-    '安全警告',
+    t('configs.deleteConfirm', { key: key }),
+    t('configs.deleteConfirmTitle'),
     {
-      confirmButtonText: '确认删除',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'error',
       confirmButtonClass: 'el-button--danger',
     }
@@ -448,16 +450,16 @@ const confirmDelete = (key) => {
 const deleteConfig = async (key) => {
   try {
     await deleteConfigApi(key)
-    ElMessage.success('配置已删除')
+    ElMessage.success(t('configs.deleteSuccess'))
     loadConfigs()
   } catch (error) {
-    ElMessage.error('删除配置失败')
+    ElMessage.error(t('configs.deleteFailed'))
   }
 }
 
 const copyValue = (value) => {
   navigator.clipboard.writeText(String(value)).then(() => {
-    ElMessage.success('配置值已复制到剪贴板')
+    ElMessage.success(t('configs.copySuccess'))
   })
 }
 

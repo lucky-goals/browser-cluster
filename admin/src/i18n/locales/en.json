@@ -1,4 +1,11 @@
 {
+    "common": {
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "tip": "Tip",
+        "save": "Save",
+        "delete": "Delete"
+    },
     "menu": {
         "home": "Home",
         "tasks": "Tasks",
@@ -18,11 +25,6 @@
         "logout": "Logout",
         "profile": "Profile"
     },
-    "stats": {
-        "today": "Today's Stats",
-        "success": "Success",
-        "failed": "Failed"
-    },
     "profile": {
         "title": "Profile Settings",
         "username": "Username",
@@ -41,29 +43,48 @@
         "archSubtitle": "Stable, reliable, and scalable distributed architecture",
         "features": {
             "cluster": "Distributed Cluster",
-            "clusterDesc": "Supports multi-node horizontal scaling to handle high concurrency.",
-            "stealth": "Stealth Rendering",
-            "stealthDesc": "Built-in Stealth plugin to effectively bypass anti-bot detections.",
-            "cache": "Efficient Caching",
-            "cacheDesc": "Redis-based caching mechanism to significantly reduce redundant scrapes.",
-            "interceptor": "API Interception",
-            "interceptorDesc": "Intercept and extract specific API data during page rendering.",
-            "monitor": "Multi-dim Monitoring",
-            "monitorDesc": "Real-time stats for success rates, load times, and node status.",
-            "optimize": "Resource Optimization",
-            "optimizeDesc": "Block images and media on demand to boost rendering speed."
+            "clusterDesc": "Effortlessly scale Worker nodes to handle millions of tasks.",
+            "stealth": "Deep Stealth Mode",
+            "stealthDesc": "Built-in fingerprinting and anti-detection to bypass anti-scraping mechanisms.",
+            "cache": "Smart Caching",
+            "cacheDesc": "Redis/MongoDB dual caching for millisecond response times on repeat requests.",
+            "interceptor": "Dynamic Proxy Pool",
+            "interceptorDesc": "Supports SOCKS5/HTTP proxies with auto-testing and failover.",
+            "monitor": "Full Monitoring",
+            "monitorDesc": "Visual dashboard for real-time tracking of load, success rate, and latency.",
+            "optimize": "Performance Optimized",
+            "optimizeDesc": "Async non-blocking architecture with low resource footprint and high concurrency."
+        },
+        "arch": {
+            "gateway": {
+                "title": "Unified Gateway",
+                "desc": "High-performance async API based on FastAPI, handling auth, throttling, and scheduling."
+            },
+            "queue": {
+                "title": "Task Queue",
+                "desc": "RabbitMQ for task smoothing, ensuring stability and reliable delivery under high load."
+            },
+            "cluster": {
+                "title": "Browser Cluster",
+                "desc": "Distributed Playwright nodes supporting stealth mode, fingerprinting, and dynamic scaling."
+            },
+            "persistence": {
+                "title": "Data Persistence",
+                "desc": "MongoDB for full task audit trails and Redis for ultra-fast result caching."
+            }
         }
     },
     "tasks": {
         "title": "Task Management",
+        "subtitle": "Real-time monitoring and management of automated scraping tasks",
         "createTask": "New Task",
-        "refresh": "Refresh",
         "batchDelete": "Batch Delete",
-        "searchPlaceholder": "Search by Task ID or URL",
+        "refresh": "Refresh",
+        "searchPlaceholder": "Search task ID or URL...",
         "status": {
             "all": "All Status",
             "pending": "Pending",
-            "running": "Running",
+            "running": "Processing",
             "success": "Success",
             "failed": "Failed"
         },
@@ -71,10 +92,511 @@
             "id": "Task ID",
             "target": "Target URL",
             "status": "Status",
-            "duration": "Duration",
-            "nodes": "Exec Node",
+            "stats": "Execution Stats",
+            "timeline": "Timeline",
+            "actions": "Actions",
+            "actualUrl": "Actual Visit"
+        },
+        "stats": {
+            "duration": "Duration:",
+            "cache": "Cache:",
+            "node": "Node:",
+            "cacheHit": "Hit",
+            "cacheSkip": "Skip",
+            "created": "Created:",
+            "completed": "Completed:",
+            "totalDuration": "Total Execution Time",
+            "loadDuration": "Page Load Time"
+        },
+        "createDialog": {
+            "title": "New Scrape Task",
+            "basic": "Basic Config",
+            "targetUrl": "Target URL",
+            "priority": "Priority",
+            "priorityHigh": "High (10)",
+            "priorityNormal": "Normal (5)",
+            "priorityLow": "Low (1)",
+            "cache": "Data Cache",
+            "cacheEnabled": "Use cached data if available",
+            "cacheDisabled": "Force re-scrape",
+            "advanced": "Advanced Options",
+            "waitFor": "Wait For",
+            "emulation": "Emulation",
+            "stealth": "Stealth Mode",
+            "screenshot": "Auto Screenshot",
+            "fullPage": "Full Page",
+            "noImage": "No Images",
+            "cancel": "Cancel",
+            "submit": "Start Now"
+        }
+    },
+    "nodes": {
+        "title": "Nodes",
+        "subtitle": "Manage distributed browser nodes and their status",
+        "addNode": "Add Node",
+        "editNode": "Edit Node",
+        "nodeId": "Node ID",
+        "queueName": "Queue Name",
+        "maxConcurrent": "Max Concurrent",
+        "taskCount": "Total Tasks",
+        "status": "Status",
+        "lastSeen": "Last Seen",
+        "actions": "Actions",
+        "start": "Start",
+        "stop": "Stop",
+        "edit": "Edit",
+        "logs": "Logs",
+        "delete": "Delete",
+        "logTitle": "Node Logs",
+        "autoScroll": "Auto Scroll",
+        "reconnect": "Reconnect",
+        "nodeIdPlaceholder": "e.g., worker-01",
+        "queuePlaceholder": "task_queue",
+        "restartWarning": "Node is running. Changing max concurrency will cause automatic restart.",
+        "stopAdvice": "It's recommended to modify settings when node is stopped.",
+        "getNodesFailed": "Failed to fetch node list",
+        "updateSuccess": "Updated successfully",
+        "addSuccess": "Added successfully",
+        "operationFailed": "Operation failed",
+        "startSuccess": "Node {id} started successfully",
+        "startFailed": "Failed to start",
+        "stopSuccess": "Node {id} stopped",
+        "stopFailed": "Failed to stop",
+        "deleteConfirm": "Are you sure you want to delete node {id}? It will be stopped if running.",
+        "deleteSuccess": "Deleted successfully",
+        "deleteFailed": "Deletion failed",
+        "noLogs": "No logs available or loading..."
+    },
+    "users": {
+        "title": "Users",
+        "subtitle": "Manage system access and permissions",
+        "addUser": "Add User",
+        "editUser": "Edit User",
+        "username": "Username",
+        "password": "Password",
+        "role": "Role",
+        "createdAt": "Created At",
+        "updatedAt": "Updated At",
+        "actions": "Actions",
+        "edit": "Edit",
+        "delete": "Delete",
+        "admin": "Administrator",
+        "user": "Regular User",
+        "passwordPlaceholder": "Enter password",
+        "usernamePlaceholder": "Enter username",
+        "rolePlaceholder": "Select role",
+        "passwordTip": "Leave blank to keep current password",
+        "getUsersFailed": "Failed to fetch user list",
+        "deleteConfirm": "Are you sure you want to delete user \"{username}\"?",
+        "deleteSuccess": "Deleted successfully",
+        "deleteFailed": "Deletion failed",
+        "updateSuccess": "Updated successfully",
+        "createSuccess": "Created successfully",
+        "operationFailed": "Operation failed"
+    },
+    "proxies": {
+        "title": "Proxy Pool",
+        "subtitle": "Manage proxy clusters with auth and connection testing",
+        "searchPlaceholder": "Search name or server...",
+        "addProxy": "Add Proxy",
+        "editProxy": "Edit Proxy",
+        "refresh": "Refresh",
+        "name": "Name/Alias",
+        "server": "Server Address",
+        "location": "Location",
+        "sessionType": "Session Type",
+        "isEnabled": "Enabled",
+        "actions": "Actions",
+        "test": "Test",
+        "edit": "Edit",
+        "delete": "Delete",
+        "unknownLocation": "Unknown",
+        "stickyIP": "Sticky IP",
+        "randomIP": "Random IP",
+        "protocol": "Protocol",
+        "username": "Username (Optional)",
+        "password": "Password (Optional)",
+        "authPlaceholder": "Leave blank for no auth",
+        "passwordHint": "Leave blank to keep current",
+        "locationPlaceholder": "e.g., USA, Los Angeles",
+        "namePlaceholder": "e.g., US-LA-01",
+        "save": "Save",
+        "create": "Create",
+        "getProxiesFailed": "Failed to fetch proxy list",
+        "fillRequired": "Please fill required fields (Name and Server)",
+        "updateSuccess": "Proxy updated",
+        "createSuccess": "Proxy created",
+        "toggleSuccess": "{name} is now {status}",
+        "enabled": "enabled",
+        "disabled": "disabled",
+        "toggleFailed": "Failed to update status",
+        "deleteConfirm": "Are you sure you want to delete proxy \"{name}\"? This cannot be undone.",
+        "deleteConfirmTitle": "Confirm Deletion",
+        "deleteBtn": "Delete",
+        "testSuccess": "Test passed! Latency: {latency}s, Status: {code}",
+        "testFailed": "Test failed: {message}",
+        "testCallFailed": "Failed to initiate test request"
+    },
+    "llmModels": {
+        "title": "Model Settings",
+        "subtitle": "Manage LLM configurations for Agent extraction",
+        "addModel": "Add Model",
+        "refresh": "Refresh",
+        "columns": {
+            "name": "Model Name",
+            "id": "Model ID",
+            "baseUrl": "API Address",
+            "vision": "Vision",
+            "stream": "Stream",
+            "retries": "Max Retries",
+            "status": "Status",
+            "actions": "Actions"
+        },
+        "status": {
+            "enabled": "Enabled",
+            "disabled": "Disabled"
+        },
+        "vision": {
+            "yes": "Yes",
+            "no": "No"
+        },
+        "stream": {
+            "yes": "Yes",
+            "no": "No"
+        },
+        "isDefault": "Default",
+        "tooltips": {
+            "test": "Test Connection",
+            "edit": "Edit",
+            "delete": "Delete"
+        },
+        "dialog": {
+            "editTitle": "Edit Model Config",
+            "createTitle": "Add Model Config",
+            "name": "Model Name",
+            "namePlaceholder": "e.g., GPT-4o",
+            "provider": "Provider",
+            "id": "Model ID",
+            "idPlaceholder": "e.g., gpt-4o, claude-3-opus-20240229",
+            "baseUrl": "API Address",
+            "apiKey": "API Key",
+            "apiKeyPlaceholder": "Leave empty to keep current",
+            "temperature": "Temperature",
+            "maxTokens": "Max Tokens",
+            "retries": "Max Retries",
+            "vision": "Support Vision",
+            "stream": "Support Stream",
+            "isDefault": "Set as Default",
+            "isEnabled": "Is Enabled",
+            "save": "Save",
+            "create": "Create"
+        },
+        "messages": {
+            "loadFailed": "Failed to get models: ",
+            "fillRequired": "Please fill in required fields",
+            "updateSuccess": "Model config updated",
+            "createSuccess": "Model config created",
+            "operationFailed": "Operation failed: ",
+            "deleteConfirm": "Are you sure you want to delete model \"{name}\"? This cannot be undone.",
+            "deleteTitle": "Delete Confirmation",
+            "deleteSuccess": "Deleted successfully",
+            "deleteFailed": "Delete failed: ",
+            "testSuccess": "Connected! Latency: {latency}ms",
+            "testFailed": "Connection failed: {message}",
+            "testCallFailed": "Test failed: "
+        }
+    },
+    "promptTemplates": {
+        "title": "Prompt Templates",
+        "addTemplate": "New Template",
+        "searchPlaceholder": "Search template name or content...",
+        "refresh": "Refresh",
+        "columns": {
+            "name": "Name",
+            "preview": "Preview",
+            "description": "Description",
+            "creator": "Creator",
+            "updatedAt": "Updated At",
+            "actions": "Actions"
+        },
+        "actions": {
+            "edit": "Edit",
+            "delete": "Delete"
+        },
+        "dialog": {
+            "editTitle": "Edit Template",
+            "createTitle": "New Template",
+            "name": "Name",
+            "namePlaceholder": "Enter template name",
+            "description": "Description",
+            "descriptionPlaceholder": "Optional: Brief purpose of this template",
+            "systemRole": "System Role",
+            "systemRoleTip": "Define the system role or pre-set instructions for AI Agent (role: system)",
+            "systemRolePlaceholder": "Optional: Enter System Prompt",
+            "extractRequest": "Extraction Request",
+            "extractRequestTip": "Specific data extraction requirements and format instructions (role: user)",
+            "extractRequestPlaceholder": "Enter your prompt for extraction requirements",
+            "save": "Save"
+        },
+        "messages": {
+            "nameRequired": "Template name is required",
+            "contentRequired": "Prompt content is required",
+            "loadFailed": "Failed to load templates",
+            "updateSuccess": "Updated successfully",
+            "createSuccess": "Created successfully",
+            "updateFailed": "Update failed: ",
+            "createFailed": "Create failed: ",
+            "deleteConfirm": "Are you sure you want to delete template \"{name}\"? This cannot be undone.",
+            "deleteTitle": "Delete Confirmation",
+            "deleteSuccess": "Deleted successfully",
+            "deleteFailed": "Delete failed"
+        }
+    },
+    "skills": {
+        "title": "Skills Management",
+        "subtitle": "Manage and extend browser interaction and extraction skills",
+        "addSkill": "Add Skill",
+        "refresh": "Refresh",
+        "columns": {
+            "name": "Skill Name",
+            "id": "Identifier",
+            "type": "Type",
+            "attr": "Attribute",
+            "status": "Status",
+            "actions": "Actions"
+        },
+        "types": {
+            "extraction": "Extraction",
+            "interaction": "Interaction"
+        },
+        "attrs": {
+            "builtin": "Built-in",
+            "custom": "Custom"
+        },
+        "actions": {
+            "edit": "Edit",
+            "delete": "Delete"
+        },
+        "dialog": {
+            "editTitle": "Edit Skill",
+            "createTitle": "Add Skill",
+            "id": "Name (ID)",
+            "idPlaceholder": "e.g., extract_prices",
+            "name": "Display Name",
+            "namePlaceholder": "e.g., Extract Prices",
+            "type": "Skill Type",
+            "interaction": "Interaction",
+            "extraction": "Extraction",
+            "isEnabled": "Enabled",
+            "description": "Description",
+            "descriptionPlaceholder": "Briefly describe the skill purpose...",
+            "jsCode": "JavaScript Code",
+            "jsPlaceholder": "// JavaScript code...\n// If extraction type, must return a value at the end\n// Example:\n// return { title: document.title, url: window.location.href };",
+            "tip": "Code runs in the browser environment. Use `document`, `window`, etc. For extraction skills, ensure you `return` the results.",
+            "confirm": "Confirm"
+        },
+        "messages": {
+            "loadFailed": "Failed to load skills",
+            "fillRequired": "Please fill in required fields",
+            "updateSuccess": "Updated successfully",
+            "createSuccess": "Created successfully",
+            "saveFailed": "Save failed: ",
+            "toggleSuccess": "Status updated",
+            "toggleFailed": "Failed to update status",
+            "deleteConfirm": "Are you sure you want to delete this skill?",
+            "deleteConfirmTitle": "Tip",
+            "deleteSuccess": "Deleted successfully",
+            "deleteFailed": "Delete failed"
+        }
+    },
+    "skillBundles": {
+        "title": "Skill Bundles",
+        "subtitle": "Combine multiple skills for different page types",
+        "addBundle": "New Bundle",
+        "refresh": "Refresh",
+        "columns": {
+            "name": "Bundle Name",
+            "description": "Description",
+            "steps": "Steps",
             "createdAt": "Created At",
             "actions": "Actions"
+        },
+        "stepsCount": "{n} steps",
+        "actions": {
+            "edit": "Edit",
+            "delete": "Delete"
+        },
+        "dialog": {
+            "editTitle": "Edit Skill Bundle",
+            "createTitle": "New Skill Bundle",
+            "name": "Bundle Name",
+            "namePlaceholder": "e.g., Real Estate Listing Pack",
+            "description": "Description",
+            "descriptionPlaceholder": "Describe the scenario for this bundle...",
+            "stepsConfig": "Interaction Steps Configuration",
+            "addStep": "Add Step",
+            "stepIndex": "Step {n}",
+            "remove": "Remove",
+            "actionType": "Action Type",
+            "wait": {
+                "title": "Wait Parameters",
+                "duration": "Duration (ms)"
+            },
+            "scroll": {
+                "title": "Scroll Parameters",
+                "container": "Container (default window)",
+                "containerPlaceholder": "e.g., .scroll-container",
+                "distance": "Distance (px)"
+            },
+            "click": {
+                "title": "Click Parameters",
+                "target": "Target Selector",
+                "targetPlaceholder": "e.g., #submit-btn"
+            },
+            "infiniteScroll": {
+                "title": "Infinite Scroll Parameters",
+                "container": "Container (default window)",
+                "containerPlaceholder": "e.g., .content",
+                "maxScrolls": "Max Scrolls",
+                "delay": "Delay (ms)"
+            },
+            "pagination": {
+                "title": "Pagination Parameters",
+                "action": "Action",
+                "next": "Next Page",
+                "prev": "Prev Page",
+                "btnPlaceholder": "e.g., .next-page-btn"
+            },
+            "zoom": {
+                "title": "Zoom Parameters",
+                "container": "Container",
+                "containerPlaceholder": "Map container selector",
+                "direction": "Direction",
+                "in": "Zoom In",
+                "out": "Zoom Out",
+                "times": "Times"
+            },
+            "fill": {
+                "title": "Fill Parameters",
+                "addField": "Add Field",
+                "fieldsCount": "{n} fields configured"
+            },
+            "extractCoordinates": {
+                "noParams": "No additional parameters required"
+            },
+            "blockContainer": {
+                "title": "Block Container Parameters",
+                "placeholder": "e.g., .card-item"
+            },
+            "excludeElements": {
+                "title": "Exclude Elements Parameters",
+                "placeholder": "e.g., .ad-banner; #footer; .popup"
+            },
+            "advanced": {
+                "json": "Advanced Parameters (JSON)"
+            },
+            "empty": "No steps. Click 'Add Step' to begin.",
+            "confirm": "Save Changes"
+        },
+        "messages": {
+            "loadFailed": "Failed to load bundles",
+            "jsonError": "Step {n} parameter format error",
+            "promptPayload": "Enter selector and value (format: selector=value)",
+            "addFieldTitle": "Add Form Field",
+            "formatError": "Format error, please use selector=value",
+            "nameRequired": "Please enter bundle name",
+            "updateSuccess": "Updated successfully",
+            "createSuccess": "Created successfully",
+            "saveFailed": "Save failed",
+            "deleteConfirm": "Are you sure you want to delete this bundle?",
+            "deleteConfirmTitle": "Tip",
+            "deleteSuccess": "Deleted successfully",
+            "deleteFailed": "Delete failed"
         }
+    },
+    "stats": {
+        "title": "Statistics",
+        "subtitle": "Visual analysis of system operation data",
+        "cards": {
+            "todayTotal": "Today's Total Tasks",
+            "successRate": "Successfully Processed",
+            "failedCount": "Failed Records",
+            "avgDuration": "Avg Response Time",
+            "trendTip": "vs Yesterday"
+        },
+        "charts": {
+            "taskAnalysis": "Task Processing Analysis",
+            "today": "Today",
+            "week": "Past Week",
+            "legend": {
+                "success": "Success",
+                "failed": "Failed",
+                "total": "Total"
+            }
+        },
+        "queue": {
+            "title": "Real-time Queue Status",
+            "total": "Current Total Queued",
+            "pending": "Pending",
+            "processing": "Processing",
+            "success": "Success",
+            "failed": "Failed"
+        }
+    },
+    "configs": {
+        "title": "System Settings",
+        "subtitle": "Manage system parameters and default scraping configs",
+        "systemLogs": "System Logs",
+        "restart": "Force Restart",
+        "addConfig": "Add Config",
+        "refresh": "Refresh",
+        "restartNeeded": "Settings Changed",
+        "restartDesc": "Some changes require a system restart to take effect.",
+        "restartNow": "Restart Now",
+        "searchPlaceholder": "Search by key, value or description...",
+        "key": "Config Key",
+        "value": "Config Value",
+        "description": "Description",
+        "lastUpdated": "Last Updated",
+        "actions": "Actions",
+        "systemDefault": "System Default",
+        "configured": "Configured",
+        "defaultHint": "Currently using default. Click edit to customize.",
+        "noDescription": "No description",
+        "edit": "Edit",
+        "delete": "Delete",
+        "noConfigs": "No configuration items",
+        "addConfigTitle": "Add Configuration",
+        "editConfigTitle": "Edit Configuration",
+        "keyPlaceholder": "e.g., browser.max_tabs",
+        "keyTip": "Lowercase separated by dots recommended",
+        "valuePlaceholder": "Enter value (JSON supported)",
+        "descPlaceholder": "Briefly describe usage",
+        "save": "Save Config",
+        "editKeyTip": "Config key cannot be modified",
+        "editValuePlaceholder": "Enter new value",
+        "editDescPlaceholder": "Update description",
+        "submit": "Submit Update",
+        "mainLogs": "System Main Logs",
+        "autoScroll": "Auto Scroll",
+        "clearScreen": "Clear Screen",
+        "reconnect": "Reconnect",
+        "loadingLogs": "Loading logs...",
+        "getConfigsFailed": "Failed to fetch configurations",
+        "restartConfirm": "Are you sure you want to force restart? Services will be temporarily unavailable.",
+        "restartConfirmTitle": "Restart Confirmation",
+        "restartSent": "Restart command sent. Please refresh later.",
+        "restartFailed": "Restart request failed",
+        "fillRequired": "Please fill in all required fields",
+        "createSuccess": "Config created",
+        "createFailed": "Failed to create config",
+        "valueRequired": "Value cannot be empty",
+        "updateSuccess": "Config updated",
+        "updateFailed": "Failed to update config",
+        "deleteConfirm": "Are you sure you want to permanently delete \"{key}\"? This cannot be undone.",
+        "deleteConfirmTitle": "Security Warning",
+        "deleteSuccess": "Config deleted",
+        "deleteFailed": "Failed to delete config",
+        "copySuccess": "Value copied to clipboard"
     }
 }

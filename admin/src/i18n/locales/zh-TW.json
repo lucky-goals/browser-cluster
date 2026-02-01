@@ -1,4 +1,11 @@
 {
+    "common": {
+        "confirm": "確定",
+        "cancel": "取消",
+        "tip": "提示",
+        "save": "保存",
+        "delete": "刪除"
+    },
     "menu": {
         "home": "首頁",
         "tasks": "任務管理",
@@ -18,11 +25,6 @@
         "logout": "退出登錄",
         "profile": "個人設置"
     },
-    "stats": {
-        "today": "今日任務統計",
-        "success": "成功",
-        "failed": "失敗"
-    },
     "profile": {
         "title": "個人設置",
         "username": "用戶名",
@@ -40,41 +42,565 @@
         "archTitle": "系統架構",
         "archSubtitle": "穩定、可靠、可擴展的分散式架構",
         "features": {
-            "cluster": "分散式集群",
-            "clusterDesc": "支持多節點水平擴展，輕鬆應對高併發抓取需求。",
-            "stealth": "隱身渲染",
-            "stealthDesc": "內置 Stealth 插件，有效繞過反爬蟲檢測與人機驗證。",
-            "cache": "高效緩存",
-            "cacheDesc": "基於 Redis 的結果緩存機制，大幅降低重複抓取成本。",
-            "interceptor": "API 攔截",
-            "interceptorDesc": "支持在頁面渲染過程中攔截並提取特定接口的數據。",
-            "monitor": "多維監控",
-            "monitorDesc": "實時統計成功率、加載時長、節點狀態等核心指標。",
-            "optimize": "資源優化",
-            "optimizeDesc": "按需攔截圖片、媒體資源，顯著提升渲染速度。"
+            "cluster": "分佈式集群",
+            "clusterDesc": "支持橫向擴展 Worker 節點，輕鬆應對百萬級任務量。",
+            "stealth": "深度混淆隱身",
+            "stealthDesc": "內置指紋混淆與反檢測，完美規避各類反爬蟲機制。",
+            "cache": "智能結果緩存",
+            "cacheDesc": "Redis/MongoDB 雙重緩存，毫秒級響應重複抓取請求。",
+            "interceptor": "動態代理池",
+            "interceptorDesc": "支持 SOCKS5/HTTP 代理，自動撥測與故障自動切換。",
+            "monitor": "全方位監控",
+            "monitorDesc": "可视化儀表盤，實時掌握節點負載、成功率與響應時延。",
+            "optimize": "極致性能優化",
+            "optimizeDesc": "非同步非阻塞架構，資源佔用低，多任務併發性能強勁。"
+        },
+        "arch": {
+            "gateway": {
+                "title": "統一網關",
+                "desc": "基於 FastAPI 的高性能非同步介面，提供鑒權、流控與任務調度入口。"
+            },
+            "queue": {
+                "title": "任務隊列",
+                "desc": "RabbitMQ 实现任務削峰填谷，確保高併發下的系統穩定性與可靠投遞。"
+            },
+            "cluster": {
+                "title": "瀏覽器集群",
+                "desc": "分佈式 Playwright 節點，支持隱身模式、指紋混淆與動態擴縮容。"
+            },
+            "persistence": {
+                "title": "數據持久化",
+                "desc": "MongoDB 存储完整任務鏈路，Redis 提供毫秒級結果緩存與狀態同步。"
+            }
         }
     },
     "tasks": {
         "title": "任務管理",
+        "subtitle": "即時監控和管理自動化抓取任務",
         "createTask": "新建任務",
-        "refresh": "刷新",
         "batchDelete": "批量刪除",
-        "searchPlaceholder": "輸入任務 ID 或 URL 搜索",
+        "refresh": "刷新",
+        "searchPlaceholder": "搜尋任務 ID 或 URL...",
         "status": {
             "all": "全部狀態",
             "pending": "等待中",
-            "running": "運行中",
-            "success": "成功",
-            "failed": "失敗"
+            "running": "處理中",
+            "success": "已成功",
+            "failed": "已失敗"
         },
         "columns": {
             "id": "任務 ID",
             "target": "目標 URL",
             "status": "狀態",
-            "duration": "時長",
-            "nodes": "執行節點",
+            "stats": "執行統計",
+            "timeline": "時間軌跡",
+            "actions": "操作",
+            "actualUrl": "實際訪問"
+        },
+        "stats": {
+            "duration": "耗時:",
+            "cache": "快取:",
+            "node": "節點:",
+            "cacheHit": "命中",
+            "cacheSkip": "跳過",
+            "created": "創建:",
+            "completed": "完成:",
+            "totalDuration": "總執行耗時",
+            "loadDuration": "頁面加載耗時"
+        },
+        "createDialog": {
+            "title": "新建抓取任務",
+            "basic": "基礎配置",
+            "targetUrl": "目標 URL",
+            "priority": "任務優先級",
+            "cacheDisabled": "強制重新抓取",
+            "advanced": "高級選項",
+            "waitFor": "等待條件",
+            "emulation": "環境模擬",
+            "stealth": "反檢測",
+            "screenshot": "自動截圖",
+            "fullPage": "全屏截圖",
+            "noImage": "無圖模式",
+            "cancel": "取消",
+            "submit": "立即開始"
+        },
+        "messages": {
+            "deleteConfirm": "確定要刪除任務嗎？",
+            "batchDeleteConfirm": "確定要批量刪除這 {n} 個任務嗎？",
+            "retryConfirm": "確定要重新執行任務嗎？",
+            "copySuccess": "已複製到剪貼簿",
+            "scrapeStarted": "抓取任務已發佈",
+            "retryStarted": "已重新發佈任務",
+            "deleteSuccess": "任務已刪除"
+        }
+    },
+    "nodes": {
+        "title": "節點管理",
+        "subtitle": "管理分散式瀏覽器節點及其運行狀態",
+        "addNode": "添加節點",
+        "editNode": "編輯節點",
+        "nodeId": "節點 ID",
+        "queueName": "任務隊列",
+        "maxConcurrent": "最大併發",
+        "taskCount": "任務總數",
+        "status": "運行狀態",
+        "lastSeen": "最後在線",
+        "actions": "操作",
+        "start": "啟動",
+        "stop": "停止",
+        "edit": "編輯",
+        "logs": "日誌",
+        "delete": "刪除",
+        "logTitle": "節點日誌",
+        "autoScroll": "自動滾動",
+        "reconnect": "重新連接",
+        "nodeIdPlaceholder": "例如: worker-01",
+        "queuePlaceholder": "task_queue",
+        "restartWarning": "節點運行中，修改最大併發將導致節點自動重啟。",
+        "stopAdvice": "建議在節點停止狀態下修改。",
+        "getNodesFailed": "獲取節點列表失敗",
+        "updateSuccess": "更新成功",
+        "addSuccess": "添加成功",
+        "operationFailed": "操作失敗",
+        "startSuccess": "節點 {id} 啟動成功",
+        "startFailed": "啟動失敗",
+        "stopSuccess": "節點 {id} 已停止",
+        "stopFailed": "停止失敗",
+        "deleteConfirm": "確定要刪除節點 {id} 嗎？如果節點正在運行將被停止。",
+        "deleteSuccess": "刪除成功",
+        "deleteFailed": "刪除失敗",
+        "noLogs": "暫無日誌或正在加載..."
+    },
+    "users": {
+        "title": "用戶管理",
+        "subtitle": "管理系統訪問賬號及其權限",
+        "addUser": "新增用戶",
+        "editUser": "編輯用戶",
+        "username": "用戶名",
+        "password": "密碼",
+        "role": "角色",
+        "createdAt": "創建時間",
+        "updatedAt": "更新時間",
+        "actions": "操作",
+        "edit": "編輯",
+        "delete": "刪除",
+        "admin": "管理員",
+        "user": "普通用戶",
+        "passwordPlaceholder": "請輸入密碼",
+        "usernamePlaceholder": "請輸入用戶名",
+        "rolePlaceholder": "請選擇角色",
+        "passwordTip": "留空則不修改密碼",
+        "getUsersFailed": "獲取用戶列表失敗",
+        "deleteConfirm": "確定要刪除用戶 \"{username}\" 嗎？",
+        "deleteSuccess": "刪除成功",
+        "deleteFailed": "刪除失敗",
+        "updateSuccess": "更新成功",
+        "createSuccess": "創建成功",
+        "operationFailed": "操作失敗"
+    },
+    "proxies": {
+        "title": "代理池管理",
+        "subtitle": "管理代理服務器集群，支持賬號密碼認證與連接撥測",
+        "searchPlaceholder": "搜尋名稱或服務器...",
+        "addProxy": "新增代理",
+        "editProxy": "編輯代理配置",
+        "refresh": "刷新",
+        "name": "名稱/標識",
+        "server": "服務器地址",
+        "location": "國家/城市",
+        "sessionType": "會話方式",
+        "isEnabled": "可用",
+        "actions": "操作",
+        "test": "連接測試",
+        "edit": "編輯",
+        "delete": "刪除",
+        "unknownLocation": "未知",
+        "stickyIP": "粘性 IP",
+        "randomIP": "隨機 IP",
+        "protocol": "協議",
+        "username": "用戶名 (可選)",
+        "password": "密碼 (可選)",
+        "authPlaceholder": "為空則不使用認證",
+        "passwordHint": "留空則不更新",
+        "locationPlaceholder": "如：美國 加利福尼亞",
+        "namePlaceholder": "如：美國-洛杉磯-01",
+        "save": "保存",
+        "create": "創建",
+        "getProxiesFailed": "獲取代理列表失敗",
+        "fillRequired": "請填寫必選字段（名稱和服務器地址）",
+        "updateSuccess": "代理配置已更新",
+        "createSuccess": "代理配置已創建",
+        "toggleSuccess": "{name} 已{status}",
+        "enabled": "啟用",
+        "disabled": "禁用",
+        "toggleFailed": "更新狀態失敗",
+        "deleteConfirm": "確定要刪除代理 \"{name}\" 嗎？此操作不可恢復。",
+        "deleteConfirmTitle": "刪除確認",
+        "deleteBtn": "刪除",
+        "testSuccess": "測試通過！響應延遲: {latency}s, 狀態碼: {code}",
+        "testFailed": "測試失敗: {message}",
+        "testCallFailed": "發起的測試請求失敗"
+    },
+    "llmModels": {
+        "title": "模型設置",
+        "subtitle": "管理大語言模型配置，用於 Agent 智能提取",
+        "addModel": "新增模型",
+        "refresh": "刷新",
+        "columns": {
+            "name": "模型名稱",
+            "id": "模型標識",
+            "baseUrl": "API 地址",
+            "vision": "視覺",
+            "stream": "流式",
+            "retries": "最大重試",
+            "status": "狀態",
+            "actions": "操作"
+        },
+        "status": {
+            "enabled": "已啟用",
+            "disabled": "已禁用"
+        },
+        "vision": {
+            "yes": "支持",
+            "no": "否"
+        },
+        "stream": {
+            "yes": "支持",
+            "no": "否"
+        },
+        "isDefault": "默認",
+        "tooltips": {
+            "test": "測試連接",
+            "edit": "編輯",
+            "delete": "刪除"
+        },
+        "dialog": {
+            "editTitle": "編輯模型配置",
+            "createTitle": "新增模型配置",
+            "name": "模型名稱",
+            "namePlaceholder": "如：GPT-4o",
+            "provider": "服務商",
+            "id": "模型標識",
+            "idPlaceholder": "如：gpt-4o, claude-3-opus-20240229",
+            "baseUrl": "API 地址",
+            "apiKey": "API Key",
+            "apiKeyPlaceholder": "留空則不更新",
+            "temperature": "Temperature",
+            "maxTokens": "Max Tokens",
+            "retries": "最大重試次數",
+            "vision": "支持視覺",
+            "stream": "支持流式",
+            "isDefault": "設為默認",
+            "isEnabled": "啟用狀態",
+            "save": "保存",
+            "create": "創建"
+        },
+        "messages": {
+            "loadFailed": "獲取模型列表失敗: ",
+            "fillRequired": "請填寫必填項",
+            "updateSuccess": "模型配置已更新",
+            "createSuccess": "模型配置已創建",
+            "operationFailed": "操作失敗: ",
+            "deleteConfirm": "確定要刪除模型 \"{name}\" 嗎？此操作不可恢復。",
+            "deleteTitle": "刪除確認",
+            "deleteSuccess": "刪除成功",
+            "deleteFailed": "刪除失敗: ",
+            "testSuccess": "連接成功！響應耗時: {latency}ms",
+            "testFailed": "連接失敗: {message}",
+            "testCallFailed": "測試失敗: "
+        }
+    },
+    "promptTemplates": {
+        "title": "提示詞模板",
+        "addTemplate": "新建模板",
+        "searchPlaceholder": "搜尋模板名稱或內容...",
+        "refresh": "刷新",
+        "columns": {
+            "name": "模板名稱",
+            "preview": "內容預覽",
+            "description": "描述",
+            "creator": "創建者",
+            "updatedAt": "更新時間",
+            "actions": "操作"
+        },
+        "actions": {
+            "edit": "編輯",
+            "delete": "刪除"
+        },
+        "dialog": {
+            "editTitle": "編輯模板",
+            "createTitle": "新建模板",
+            "name": "名稱",
+            "namePlaceholder": "請輸入模板名稱",
+            "description": "描述",
+            "descriptionPlaceholder": "可選：簡要描述模板用途",
+            "systemRole": "系統角色",
+            "systemRoleTip": "用於定義 AI Agent 的系統角色或預置指令 (role: system)",
+            "systemRolePlaceholder": "可選：請輸入系統角色內容 (System Prompt)",
+            "extractRequest": "提取要求",
+            "extractRequestTip": "具體的數據提取要求和格式說明 (role: user)",
+            "extractRequestPlaceholder": "請輸入提取要求的提示詞內容",
+            "save": "保存"
+        },
+        "messages": {
+            "nameRequired": "請輸入模板名稱",
+            "contentRequired": "請輸入提示詞內容",
+            "loadFailed": "加載模板失敗",
+            "updateSuccess": "更新成功",
+            "createSuccess": "創建成功",
+            "updateFailed": "更新失敗: ",
+            "createFailed": "創建失敗: ",
+            "deleteConfirm": "確定要刪除模板 \"{name}\" 嗎？此操作不可恢復。",
+            "deleteTitle": "刪除確認",
+            "deleteSuccess": "刪除成功",
+            "deleteFailed": "刪除失敗: "
+        }
+    },
+    "skills": {
+        "title": "技能管理",
+        "subtitle": "管理和擴展瀏覽器交互及提取技能",
+        "addSkill": "新增技能",
+        "refresh": "刷新",
+        "columns": {
+            "name": "技能名稱",
+            "id": "標識符",
+            "type": "類型",
+            "attr": "屬性",
+            "status": "狀態",
+            "actions": "操作"
+        },
+        "types": {
+            "extraction": "數據提取",
+            "interaction": "交互操作"
+        },
+        "attrs": {
+            "builtin": "內置",
+            "custom": "自定義"
+        },
+        "actions": {
+            "edit": "編輯",
+            "delete": "刪除"
+        },
+        "dialog": {
+            "editTitle": "編輯技能",
+            "createTitle": "新增技能",
+            "id": "名稱 (標識符)",
+            "idPlaceholder": "例如: extract_prices",
+            "name": "顯示名稱",
+            "namePlaceholder": "例如: 提取價格",
+            "type": "技能類型",
+            "interaction": "交互操作 (Interaction)",
+            "extraction": "數據提取 (Extraction)",
+            "isEnabled": "啟用狀態",
+            "description": "描述",
+            "descriptionPlaceholder": "簡要描述技能用途...",
+            "jsCode": "JavaScript 代碼",
+            "jsPlaceholder": "// JavaScript 代碼...\n// 如果是提取類型，最後必須 return 一個值\n// 示例：\n// return { title: document.title, url: window.location.href };",
+            "tip": "代碼將在瀏覽器環境中執行，可以使用 `document`, `window` 等對象。如果是採集類技能，請確保最後使用 `return` 返回結果。",
+            "confirm": "確定"
+        },
+        "messages": {
+            "loadFailed": "加載技能列表失敗",
+            "fillRequired": "請填寫必填項",
+            "updateSuccess": "更新成功",
+            "createSuccess": "創建成功",
+            "saveFailed": "保存失敗: ",
+            "toggleSuccess": "狀態更新成功",
+            "toggleFailed": "更新狀態失敗",
+            "deleteConfirm": "確定刪除該技能嗎？",
+            "deleteConfirmTitle": "提示",
+            "deleteSuccess": "刪除成功",
+            "deleteFailed": "刪除失敗"
+        }
+    },
+    "skillBundles": {
+        "title": "技能包管理",
+        "subtitle": "組合多個技能，為不同類型的頁面定制抓取方案",
+        "addBundle": "新建技能包",
+        "refresh": "刷新",
+        "columns": {
+            "name": "技能包名稱",
+            "description": "描述",
+            "steps": "包含步驟",
             "createdAt": "創建時間",
             "actions": "操作"
+        },
+        "stepsCount": "{n} 個步驟",
+        "actions": {
+            "edit": "編輯",
+            "delete": "刪除"
+        },
+        "dialog": {
+            "editTitle": "編輯技能包",
+            "createTitle": "新建技能包",
+            "name": "技能包名稱",
+            "namePlaceholder": "例如: 房產搜索結果提取包",
+            "description": "描述",
+            "descriptionPlaceholder": "簡要描述該技能包的適用場景...",
+            "stepsConfig": "交互步驟配置",
+            "addStep": "添加步驟",
+            "stepIndex": "步驟 {n}",
+            "remove": "移除",
+            "actionType": "動作類型",
+            "wait": {
+                "title": "等待參數",
+                "duration": "等待耗時 (ms)"
+            },
+            "scroll": {
+                "title": "滾動參數",
+                "container": "容器選擇器 (默認 window)",
+                "containerPlaceholder": "例如: .scroll-container",
+                "distance": "滾動距離 (px)"
+            },
+            "click": {
+                "title": "點擊參數",
+                "target": "目標選擇器",
+                "targetPlaceholder": "例如: #submit-btn"
+            },
+            "infiniteScroll": {
+                "title": "流式滾動參數",
+                "container": "容器選擇器 (默認 window)",
+                "containerPlaceholder": "例如: .content",
+                "maxScrolls": "最大次數",
+                "delay": "延遲 (ms)"
+            },
+            "pagination": {
+                "title": "翻頁參數",
+                "action": "翻頁動作",
+                "next": "下一頁",
+                "prev": "上一頁",
+                "btnPlaceholder": "例如: .next-page-btn"
+            },
+            "zoom": {
+                "title": "縮放參數",
+                "container": "容器選擇器",
+                "containerPlaceholder": "地圖容器選擇器",
+                "direction": "方向",
+                "in": "放大",
+                "out": "縮小",
+                "times": "次數"
+            },
+            "fill": {
+                "title": "填充參數",
+                "addField": "添加字段",
+                "fieldsCount": "已配置 {n} 個字段"
+            },
+            "extractCoordinates": {
+                "noParams": "該技能無需額外參數"
+            },
+            "blockContainer": {
+                "title": "塊狀容器參數",
+                "placeholder": "例如: .card-item"
+            },
+            "excludeElements": {
+                "title": "排除元素參數",
+                "placeholder": "例如: .ad-banner; #footer; .popup"
+            },
+            "advanced": {
+                "json": "擴展參數 (JSON格式)"
+            },
+            "empty": "暫無步驟，點擊上方“添加步驟”按鈕開始配置",
+            "confirm": "確定保存"
+        },
+        "messages": {
+            "loadFailed": "加載技能包失敗",
+            "jsonError": "步驟 {n} 的參數格式錯誤",
+            "promptPayload": "請輸入字段選擇器和內容 (格式: selector=value)",
+            "addFieldTitle": "添加表單字段",
+            "formatError": "格式錯誤，請使用 selector=value",
+            "nameRequired": "請輸入技能包名稱",
+            "updateSuccess": "更新成功",
+            "createSuccess": "創建成功",
+            "saveFailed": "保存失敗",
+            "deleteConfirm": "確定刪除該技能包嗎？",
+            "deleteConfirmTitle": "提示",
+            "deleteSuccess": "刪除成功",
+            "deleteFailed": "刪除失敗"
         }
+    },
+    "stats": {
+        "title": "統計中心",
+        "subtitle": "系統運行數據可视化分析",
+        "cards": {
+            "todayTotal": "今日任務總量",
+            "successRate": "成功處理",
+            "failedCount": "失敗記錄",
+            "avgDuration": "平均響應時間",
+            "trendTip": "較昨日"
+        },
+        "charts": {
+            "taskAnalysis": "任務處理分析",
+            "today": "今日",
+            "week": "近一週",
+            "legend": {
+                "success": "成功",
+                "failed": "失敗",
+                "total": "總計"
+            }
+        },
+        "queue": {
+            "title": "實時隊列狀態",
+            "total": "當前排隊總數",
+            "pending": "等待中",
+            "processing": "處理中",
+            "success": "已完成",
+            "failed": "已失敗"
+        }
+    },
+    "configs": {
+        "title": "系統配置",
+        "subtitle": "管理系統運行參數及默認抓取設置",
+        "systemLogs": "系統日誌",
+        "restart": "強制重啟",
+        "addConfig": "新增配置",
+        "refresh": "刷新",
+        "restartNeeded": "配置已更改",
+        "restartDesc": "部分配置更改需要重啟系統才能生效。請點擊右上角的“強制重啟”按鈕。",
+        "restartNow": "立即重啟",
+        "searchPlaceholder": "搜索配置鍵、值或說明...",
+        "key": "配置鍵 (Key)",
+        "value": "配置值 (Value)",
+        "description": "說明",
+        "lastUpdated": "最後更新",
+        "actions": "操作",
+        "systemDefault": "系統默認",
+        "configured": "已配置",
+        "defaultHint": "當前使用系統默認值，點擊編輯可自定義",
+        "noDescription": "暫無說明",
+        "edit": "編輯",
+        "delete": "刪除",
+        "noConfigs": "暫無配置項",
+        "addConfigTitle": "新增配置項",
+        "editConfigTitle": "編輯配置項",
+        "keyPlaceholder": "例如: browser.max_tabs",
+        "keyTip": "建議使用小寫字母和點號分隔，如 browser.timeout",
+        "valuePlaceholder": "請輸入配置內容，支持 JSON 字符串",
+        "descPlaceholder": "簡單描述該配置的用途",
+        "save": "保存配置",
+        "editKeyTip": "配置鍵不可修改",
+        "editValuePlaceholder": "請輸入新配置內容",
+        "editDescPlaceholder": "更新配置說明",
+        "submit": "提交更新",
+        "mainLogs": "系統主日誌",
+        "autoScroll": "自動滾動",
+        "clearScreen": "清空螢幕",
+        "reconnect": "重新連接",
+        "loadingLogs": "正在加載日誌...",
+        "getConfigsFailed": "獲取配置資訊失敗",
+        "restartConfirm": "確定要強制重啟分佈式後端系統嗎？重啟期間服務將暫時不可用。",
+        "restartConfirmTitle": "強制重啟確認",
+        "restartSent": "重啟指令已發送，請稍後刷新頁面",
+        "restartFailed": "重啟請求失敗",
+        "fillRequired": "請填寫必填項",
+        "createSuccess": "配置已創建",
+        "createFailed": "創建配置失敗",
+        "valueRequired": "配置值不能為空",
+        "updateSuccess": "配置已更新",
+        "updateFailed": "更新配置失敗",
+        "deleteConfirm": "確定要永久刪除配置項 \"{key}\" 嗎？此操作不可恢復。",
+        "deleteConfirmTitle": "安全警告",
+        "deleteSuccess": "配置已刪除",
+        "deleteFailed": "刪除配置失敗",
+        "copySuccess": "配置值已複製到剪貼簿"
     }
 }
