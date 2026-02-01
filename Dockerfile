@@ -63,7 +63,7 @@ ENV PYTHONUNBUFFERED=1 \
 ENV PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright
 
 # Copy project files for uv
-COPY pyproject.toml uv.lock* ./
+COPY pyproject.toml uv.lock* README.md ./
 
 # Install Python dependencies with uv
 RUN uv sync --frozen --no-dev --no-install-project

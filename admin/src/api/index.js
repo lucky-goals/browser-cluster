@@ -338,3 +338,20 @@ export const deleteSkillBundle = async (bundleId) => {
   const response = await api.delete(`/skill-bundles/${bundleId}`)
   return response.data
 }
+
+// Backup & Restore API
+export const downloadBackup = async () => {
+  const response = await api.get('/system/backup', { responseType: 'blob' })
+  return response
+}
+
+export const restoreBackup = async (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await api.post('/system/restore', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+  return response.data
+}

@@ -82,7 +82,8 @@ DEFAULT_SKILLS = [
 ]
 
 async def init_skills():
-    mongo.connect()
+    # 注意：调用此函数前需要确保 mongo 已连接，或者让 mongo.db 自动连接
+    # 在 app/main.py 中调用时，连接已由 startup_event 建立
     
     for skill_data in DEFAULT_SKILLS:
         existing = mongo.skills.find_one({"name": skill_data["name"]})
@@ -94,7 +95,11 @@ async def init_skills():
         else:
             print(f"Skill {skill_data['name']} already exists, skipping.")
             
-    mongo.close()
 
 if __name__ == "__main__":
-    asyncio.run(init_skills())
+    async def main():
+        mongo.connect()
+        await init_skills()
+        mongo.close()
+        
+    asyncio.run(main())

@@ -597,6 +597,14 @@
         "deleteConfirmTitle": "Security Warning",
         "deleteSuccess": "Config deleted",
         "deleteFailed": "Failed to delete config",
-        "copySuccess": "Value copied to clipboard"
+        "copySuccess": "Value copied to clipboard",
+        "backup": "Backup",
+        "restore": "Restore",
+        "backupSuccess": "Backup exported successfully",
+        "backupFailed": "Failed to export backup",
+        "restoreTitle": "Confirm Restore",
+        "restoreConfirm": "Restore will overwrite existing data with the same keys/IDs. This is a dangerous operation. Are you sure?",
+        "restoreSuccess": "Restore successful",
+        "restoreFailed": "Restore failed, please check file format"
     }
 }

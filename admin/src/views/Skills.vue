@@ -22,13 +22,13 @@
         <el-table-column prop="name" :label="$t('skills.columns.name')" min-width="150">
           <template #default="{ row }">
             <div class="skill-name-cell">
-              <span class="skill-name">{{ row.name }}</span>
+              <span class="skill-name">{{ row.display_name || row.name }}</span>
             </div>
           </template>
         </el-table-column>
         <el-table-column prop="skill_id" :label="$t('skills.columns.id')" width="180">
           <template #default="{ row }">
-            <code class="skill-id">{{ row.skill_id }}</code>
+            <code class="skill-id">{{ row.name }}</code>
           </template>
         </el-table-column>
         <el-table-column prop="type" :label="$t('skills.columns.type')" width="120" align="center">
@@ -113,13 +113,17 @@
         </el-form-item>
 
         <el-form-item :label="$t('skills.dialog.jsCode')" required>
-          <el-input
-            v-model="form.code"
-            type="textarea"
-            :rows="12"
-            :placeholder="$t('skills.dialog.jsPlaceholder')"
-            class="code-editor"
-          />
+          <div class="code-editor-outer">
+            <codemirror
+              v-model="form.code"
+              placeholder="// JavaScript Code..."
+              :style="{ height: '400px' }"
+              :autofocus="true"
+              :indent-with-tab="true"
+              :tab-size="2"
+              :extensions="extensions"
+            />
+          </div>
           <div class="code-tip">
             {{ $t('skills.dialog.tip') }}
           </div>
@@ -168,7 +172,7 @@ const loadSkills = async () => {
   loading.value = true
   try {
     const data = await getSkills()
-    skills.value = data.items
+    skills.value = data
   } catch (error) {
     ElMessage.error(t('skills.messages.loadFailed'))
   } finally {
@@ -193,11 +197,11 @@ const showEditDialog = (row) => {
   isEdit.value = true
   editId.value = row._id
   form.value = {
-    skill_id: row.skill_id,
-    name: row.name,
+    skill_id: row.name, // The unique identifier (slug)
+    name: row.display_name || row.name, // The display name
     type: row.type,
     description: row.description,
-    code: row.code,
+    code: row.js_code || row.code, // The code
     is_enabled: row.is_enabled
   }
   showDialog.value = true
@@ -211,11 +215,21 @@ const submitForm = async () => {
 
   submitting.value = true
   try {
+    // Construct payload matching backend model
+    const payload = {
+      name: form.value.skill_id,
+      display_name: form.value.name,
+      type: form.value.type,
+      description: form.value.description,
+      js_code: form.value.code,
+      is_enabled: form.value.is_enabled
+    }
+
     if (isEdit.value) {
-      await updateSkill(editId.value, form.value)
+      await updateSkill(editId.value, payload)
       ElMessage.success(t('skills.messages.updateSuccess'))
     } else {
-      await createSkill(form.value)
+      await createSkill(payload)
       ElMessage.success(t('skills.messages.createSuccess'))
     }
     showDialog.value = false

@@ -79,8 +79,16 @@ class Settings(BaseSettings):
             configs = sqlite_db.get_all_configs()
             
             updated_count = 0
+            # Infrastructure settings that should NOT be overridden by DB
+            INFRA_KEYS = {'mongo_uri', 'mongo_db', 'redis_url', 'redis_cache_url', 'rabbitmq_url'}
+            
             for config in configs:
                 key = config['key']
+                # Case-insensitive check for infrastructure keys
+                if key.lower() in INFRA_KEYS:
+                    print(f"Skipping infrastructure config from DB: {key} (keeping env value)")
+                    continue
+                    
                 value = config['value']
                 
                 # 仅更新已存在的配置项

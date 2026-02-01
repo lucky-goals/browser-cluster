@@ -10,6 +10,15 @@
         <el-button type="info" size="large" @click="handleViewSystemLogs" class="action-btn">
           <el-icon><Document /></el-icon> {{ $t('configs.systemLogs') }}
         </el-button>
+        <!-- Backup/Restore Buttons -->
+        <el-button color="#626aef" size="large" @click="handleDownloadBackup" class="action-btn" plain>
+          <el-icon><Download /></el-icon> {{ $t('configs.backup') }}
+        </el-button>
+        <el-button color="#626aef" size="large" @click="triggerRestore" class="action-btn" plain>
+          <el-icon><Upload /></el-icon> {{ $t('configs.restore') }}
+        </el-button>
+        <input type="file" ref="fileInput" @change="handleRestoreFile" style="display: none" accept=".json" />
+        
         <el-button type="danger" size="large" @click="handleRestart" :loading="restarting" class="action-btn">
           <el-icon><Cpu /></el-icon> {{ $t('configs.restart') }}
         </el-button>
@@ -219,7 +228,8 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Plus, Refresh, Delete, Setting, Timer, Search, 
-  Edit, DocumentCopy, InfoFilled, Cpu, Document
+  Edit, DocumentCopy, InfoFilled, Cpu, Document,
+  Download, Upload
 } from '@element-plus/icons-vue'
 import { 
   getConfigs, 
@@ -227,8 +237,80 @@ import {
   restartSystem,
   createConfig as createConfigApi, 
   updateConfig as updateConfigApi, 
-  deleteConfig as deleteConfigApi 
+  deleteConfig as deleteConfigApi,
+  downloadBackup,
+  restoreBackup
 } from '../api'
+
+// Restore Handler
+const fileInput = ref(null)
+
+const handleDownloadBackup = async () => {
+  try {
+    const response = await downloadBackup()
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    
+    // Get filename from header or default
+    const contentDisposition = response.headers['content-disposition']
+    let fileName = 'system_backup.json'
+    if (contentDisposition) {
+      const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/)
+      if (fileNameMatch.length === 2)
+        fileName = fileNameMatch[1]
+    }
+    
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    ElMessage.success(t('configs.backupSuccess'))
+  } catch (error) {
+    ElMessage.error(t('configs.backupFailed'))
+  }
+}
+
+const triggerRestore = () => {
+  fileInput.value.click()
+}
+
+const handleRestoreFile = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  try {
+    await ElMessageBox.confirm(
+      t('configs.restoreConfirm'),
+      t('configs.restoreTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+    
+    loading.value = true
+    const result = await restoreBackup(file)
+    
+    let message = t('configs.restoreSuccess')
+    // Optionally format stats
+    ElMessage.success(message)
+    loadConfigs()
+    
+    // Clear input
+    event.target.value = ''
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(t('configs.restoreFailed'))
+    }
+    // Clear input
+    event.target.value = ''
+  } finally {
+    loading.value = false
+  }
+}
 import dayjs from 'dayjs'
 
 const { t } = useI18n()

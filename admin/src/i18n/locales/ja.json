@@ -605,6 +605,14 @@
         "deleteConfirmTitle": "セキュリティ警告",
         "deleteSuccess": "設定が削除されました",
         "deleteFailed": "設定の削除に失敗しました",
-        "copySuccess": "設定値がクリップボードにコピーされました"
+        "copySuccess": "設定値がクリップボードにコピーされました",
+        "backup": "バックアップ",
+        "restore": "復元",
+        "backupSuccess": "システムのバックアップが正常にエクスポートされました",
+        "backupFailed": "バックアップのエクスポートに失敗しました",
+        "restoreTitle": "復元の確認",
+        "restoreConfirm": "復元すると、同じキー/IDを持つ既存のデータが上書きされます。これは危険な操作です。続行しますか？",
+        "restoreSuccess": "復元に成功しました",
+        "restoreFailed": "復元に失敗しました。ファイル形式を確認してください"
     }
 }

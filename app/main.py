@@ -36,6 +36,7 @@ from app.api import (
     proxies,
     skills,
     skill_bundles,
+    backup,
 )
 from app.db.mongo import mongo
 from app.db.redis import redis_client
@@ -117,6 +118,7 @@ app.include_router(prompt_template.router)
 app.include_router(proxies.router)
 app.include_router(skills.router)
 app.include_router(skill_bundles.router)
+app.include_router(backup.router)
 
 
 @app.on_event("startup")
@@ -131,6 +133,20 @@ async def startup_event():
 
     mongo.connect()
     redis_client.connect_cache()
+    
+    # 初始化默认管理员账号
+    try:
+        from scripts.init_admin import init_admin
+        init_admin()
+    except Exception as e:
+        logger.error(f"Failed to initialize admin user: {e}")
+
+    # 初始化内置技能
+    try:
+        from scripts.init_skills import init_skills
+        await init_skills()
+    except Exception as e:
+        logger.error(f"Failed to initialize skills: {e}")
 
     # 自动启动离线但状态为 running 的节点
     await node_manager.auto_start_nodes()

@@ -9,6 +9,8 @@
 - **🤖 LLM 智能提取 (Agent)**：集成大语言模型，支持对网页内容进行零配置的自动化结构化提取。
 - **🌐 全功能代理池**：支持 HTTP/SOCKS5 代理管理，具备账号密码认证、连接拨测、地理位置标识及会话持久化（Sticky IP）控制。
 - **🎭 多模型驱动**：原生支持 OpenAI, Anthropic (Claude), Google Gemini, Ollama 及自定义 OpenAI 兼容接口，支持视觉识别。
+- **🌍 多语言支持 (i18n)**：全量覆盖简体中文、繁體中文、English 及 日本語，满足全球化部署需求。
+- **📦 技能包 (Skill Bundles)**：支持将多个交互原子技能组合成“技能包”，灵活编排复杂的页面交互流程。
 - **📝 提示词模板管理**：预置与自定义提示词模板，支持在抓取任务中一键引用，并可将成功的提取经验保存为模板。
 - **分布式架构**：支持多 Worker 节点水平扩展，轻松应对高并发场景。
 - **隐身模式**：内置 Stealth 插件，有效绕过反爬虫检测。
@@ -38,6 +40,22 @@
 
 - **📨 Proxy Pool Manager**
   - 管理代理集群，支持主动拨测（Connection Test），确保任务分配到可用的代理。
+
+## 🐳 Docker 部署 (推荐)
+
+如果您希望快速部署完整的生产环境（包含数据库和消息队列），使用 Docker Compose 是最简单的选择。
+
+1. **构建与启动**
+   ```bash
+   # 构建并后台启动所有服务
+   docker-compose up -d --build
+   ```
+
+2. **服务访问**
+   - **API 服务**: `http://localhost:9993`
+   - **MongoDB**: `localhost:27017`
+   - **Redis**: `localhost:6379`
+   - **RabbitMQ 管理后台**: `http://localhost:15672` (默认账号: guest / guest)
 
 ## 📦 快速开始
 
