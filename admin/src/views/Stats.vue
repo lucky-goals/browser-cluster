@@ -15,12 +15,21 @@
               </div>
             </div>
           </div>
-          <div class="card-footer" v-if="item.trend">
-            <span class="trend" :class="item.trend > 0 ? 'up' : 'down'">
-              {{ item.trend > 0 ? '+' : '' }}{{ item.trend }}% 
-              <el-icon><CaretTop v-if="item.trend > 0" /><CaretBottom v-else /></el-icon>
-            </span>
-            <span class="tip">{{ $t('stats.cards.trendTip') }}</span>
+          <div class="card-footer">
+            <template v-if="item.trend !== undefined">
+              <span class="trend" :class="item.trend > 0 ? (item.type === 'danger' ? 'down' : 'up') : (item.trend < 0 ? (item.type === 'danger' ? 'up' : 'down') : 'neutral')">
+                {{ item.trend > 0 ? '+' : '' }}{{ item.trend }}% 
+                <el-icon v-if="item.trend !== 0">
+                  <CaretTop v-if="item.trend > 0" />
+                  <CaretBottom v-else />
+                </el-icon>
+              </span>
+              <span class="tip">{{ $t('stats.cards.trendTip') }}</span>
+            </template>
+            <template v-else>
+              <span class="trend neutral">0%</span>
+              <span class="tip">{{ $t('stats.cards.trendTip') }}</span>
+            </template>
           </div>
         </el-card>
       </el-col>
@@ -38,11 +47,11 @@
               </el-radio-group>
             </div>
           </template>
-          <div ref="chartRef" style="height: 380px;"></div>
+          <div ref="chartRef" style="height: 480px;"></div>
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card shadow="hover" :header="$t('stats.queue.title')" class="queue-card-main">
+        <el-card shadow="hover" :header="$t('stats.queue.title')" class="queue-card-main full-height-card">
           <div class="queue-summary">
             <div class="total-queue">
               <div class="val">{{ totalQueue }}</div>
@@ -77,10 +86,9 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useStatsStore } from '../stores/stats'
 import * as echarts from 'echarts'
-import { Timer, Checked, CircleClose, DataLine, CaretTop, CaretBottom } from '@element-plus/icons-vue'
+import { Timer, Checked, CircleClose, DataLine, CaretTop, CaretBottom, MagicStick } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
-
 const statsStore = useStatsStore()
 const chartRef = ref(null)
 const chartTimeRange = ref('today')
@@ -93,7 +101,7 @@ const statCards = computed(() => [
   { label: t('stats.cards.todayTotal'), value: stats.value.today.total, icon: DataLine, type: 'primary', unit: '', trend: stats.value.trends.total },
   { label: t('stats.cards.successRate'), value: stats.value.today.success, icon: Checked, type: 'success', unit: '', trend: stats.value.trends.success },
   { label: t('stats.cards.failedCount'), value: stats.value.today.failed, icon: CircleClose, type: 'danger', unit: '', trend: stats.value.trends.failed },
-  { label: t('stats.cards.avgDuration'), value: stats.value.today.avg_duration?.toFixed(2) || 0, icon: Timer, type: 'warning', unit: 's', trend: stats.value.trends.avg_duration }
+  { label: t('stats.cards.totalScraped', '累计抓取数据'), value: stats.value.total_scraped || 0, icon: MagicStick, type: 'warning', unit: t('stats.cards.recordsUnit', '条'), trend: undefined }
 ])
 
 const queueItems = computed(() => [
@@ -115,68 +123,171 @@ const updateChart = () => {
   }
   if (!chart) return
   
-  const history = stats.value.history || []
-  const dates = history.map(item => item._id)
-  const successData = history.map(item => item.success)
-  const failedData = history.map(item => item.failed)
-  const totalData = history.map(item => item.total)
+  let option = {}
+  
+  if (chartTimeRange.value === 'today') {
+    // 今日数据展示为柱状图 (支持分时或总量)
+    const hourly = stats.value.today_hourly || []
+    const today = stats.value.today
+    
+    if (hourly.length > 0) {
+      // 如果有分时数据，展示分时柱状图
+      const hours = hourly.map(item => item._id)
+      const successData = hourly.map(item => item.success)
+      const failedData = hourly.map(item => item.failed)
+      const totalData = hourly.map(item => item.total)
 
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'cross' }
-    },
-    legend: {
-      data: [t('stats.charts.legend.success'), t('stats.charts.legend.failed'), t('stats.charts.legend.total')],
-      bottom: 0
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '10%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      boundaryGap: false,
-      data: dates.length > 0 ? dates : ['无数据'],
-      axisTick: { alignWithLabel: true }
-    },
-    yAxis: { type: 'value' },
-    series: [
-      {
-        name: t('stats.charts.legend.success'),
-        type: 'line',
-        smooth: true,
-        data: successData,
-        itemStyle: { color: '#67C23A' },
-        areaStyle: { opacity: 0.1 }
-      },
-      {
-        name: t('stats.charts.legend.failed'),
-        type: 'line',
-        smooth: true,
-        data: failedData,
-        itemStyle: { color: '#F56C6C' },
-        areaStyle: { opacity: 0.1 }
-      },
-      {
-        name: t('stats.charts.legend.total'),
-        type: 'line',
-        smooth: true,
-        data: totalData,
-        itemStyle: { color: '#409EFF' }
+      option = {
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' }
+        },
+        legend: {
+          data: [t('stats.charts.legend.success'), t('stats.charts.legend.failed'), t('stats.charts.legend.total')],
+          bottom: 0
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '10%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: hours,
+          axisTick: { alignWithLabel: true }
+        },
+        yAxis: { type: 'value' },
+        series: [
+          {
+            name: t('stats.charts.legend.success'),
+            type: 'bar',
+            stack: 'status',
+            data: successData,
+            itemStyle: { color: '#67C23A' }
+          },
+          {
+            name: t('stats.charts.legend.failed'),
+            type: 'bar',
+            stack: 'status',
+            data: failedData,
+            itemStyle: { color: '#F56C6C' }
+          },
+          {
+            name: t('stats.charts.legend.total'),
+            type: 'line',
+            data: totalData,
+            itemStyle: { color: '#409EFF' },
+            smooth: true
+          }
+        ]
       }
-    ]
+    } else {
+      // 降级为总量柱状图
+      option = {
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' }
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '10%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: [t('stats.cards.todayTotal'), t('stats.cards.successRate'), t('stats.cards.failedCount')],
+          axisTick: { alignWithLabel: true }
+        },
+        yAxis: { type: 'value' },
+        series: [
+          {
+            name: t('stats.cards.todayTotal'),
+            type: 'bar',
+            barWidth: '40%',
+            data: [
+              { value: today.total, itemStyle: { color: '#409EFF' } },
+              { value: today.success, itemStyle: { color: '#67C23A' } },
+              { value: today.failed, itemStyle: { color: '#F56C6C' } }
+            ],
+            label: {
+              show: true,
+              position: 'top'
+            }
+          }
+        ]
+      }
+    }
+  } else {
+    // 近一周数据展示为折线图
+    const history = stats.value.history || []
+    const dates = history.map(item => item._id)
+    const successData = history.map(item => item.success)
+    const failedData = history.map(item => item.failed)
+    const totalData = history.map(item => item.total)
+
+    option = {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross' }
+      },
+      legend: {
+        data: [t('stats.charts.legend.success'), t('stats.charts.legend.failed'), t('stats.charts.legend.total')],
+        bottom: 0
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '10%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: dates.length > 0 ? dates : [t('common.tip')],
+        axisTick: { alignWithLabel: true }
+      },
+      yAxis: { type: 'value' },
+      series: [
+        {
+          name: t('stats.charts.legend.success'),
+          type: 'line',
+          smooth: true,
+          data: successData,
+          itemStyle: { color: '#67C23A' },
+          areaStyle: { opacity: 0.1 }
+        },
+        {
+          name: t('stats.charts.legend.failed'),
+          type: 'line',
+          smooth: true,
+          data: failedData,
+          itemStyle: { color: '#F56C6C' },
+          areaStyle: { opacity: 0.1 }
+        },
+        {
+          name: t('stats.charts.legend.total'),
+          type: 'line',
+          smooth: true,
+          data: totalData,
+          itemStyle: { color: '#409EFF' }
+        }
+      ]
+    }
   }
-  chart.setOption(option)
+  
+  chart.setOption(option, true)
 }
 
 onMounted(() => {
   statsStore.fetchStats().then(() => updateChart())
-  // 在统计页面，我们可以选择增加轮询频率，或者直接使用 store 的全局轮询
-  // 这里我们观察 store 的变化来更新图表
   window.addEventListener('resize', () => chart?.resize())
+})
+
+// 监听时间范围变化
+watch(chartTimeRange, () => {
+  updateChart()
 })
 
 watch(() => statsStore.stats, () => {
@@ -268,6 +379,7 @@ onUnmounted(() => {
 
 .trend.up { color: #67c23a; }
 .trend.down { color: #f56c6c; }
+.trend.neutral { color: #909399; }
 
 .tip { color: #c0c4cc; }
 
@@ -279,6 +391,20 @@ onUnmounted(() => {
   border-radius: 12px;
   border: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.full-height-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.full-height-card :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  padding: 30px 20px !important;
 }
 
 .card-header {
@@ -310,7 +436,7 @@ onUnmounted(() => {
 .queue-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
 .queue-item .q-info {

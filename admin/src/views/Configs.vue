@@ -3,14 +3,13 @@
     <!-- 顶部标题栏 -->
     <div class="page-header">
       <div class="header-left">
-        <h2 class="header-title">{{ $t('configs.title') }}</h2>
-        <p class="header-subtitle">{{ $t('configs.subtitle') }}</p>
+        <h2 class="header-title">系统配置</h2>
+        <p class="header-subtitle">管理系统运行参数及默认抓取设置</p>
       </div>
       <div class="header-actions">
         <el-button type="info" size="large" @click="handleViewSystemLogs" class="action-btn">
-          <el-icon><Document /></el-icon> {{ $t('configs.systemLogs') }}
+          <el-icon><Document /></el-icon> 系统日志
         </el-button>
-        <!-- Backup/Restore Buttons -->
         <el-button color="#626aef" size="large" @click="handleDownloadBackup" class="action-btn" plain>
           <el-icon><Download /></el-icon> {{ $t('configs.backup') }}
         </el-button>
@@ -18,15 +17,17 @@
           <el-icon><Upload /></el-icon> {{ $t('configs.restore') }}
         </el-button>
         <input type="file" ref="fileInput" @change="handleRestoreFile" style="display: none" accept=".json" />
-        
+        <el-button type="warning" size="large" @click="handleExport" class="action-btn">
+          <el-icon><Download /></el-icon> {{ $t('configs.backup') }}
+        </el-button>
         <el-button type="danger" size="large" @click="handleRestart" :loading="restarting" class="action-btn">
-          <el-icon><Cpu /></el-icon> {{ $t('configs.restart') }}
+          <el-icon><Cpu /></el-icon> 强制重启
         </el-button>
         <el-button type="primary" size="large" @click="showAddDialog = true" class="action-btn">
-          <el-icon><Plus /></el-icon> {{ $t('configs.addConfig') }}
+          <el-icon><Plus /></el-icon> 新增配置
         </el-button>
         <el-button size="large" @click="loadConfigs" :loading="loading" class="action-btn">
-          <el-icon><Refresh /></el-icon> {{ $t('configs.refresh') }}
+          <el-icon><Refresh /></el-icon> 刷新
         </el-button>
       </div>
     </div>
@@ -34,15 +35,16 @@
     <!-- 重启提示 -->
     <el-alert
       v-if="needsRestart"
-      :title="$t('configs.restartNeeded')"
+      title="配置已更改"
       type="warning"
+      description="部分配置更改需要重启系统才能生效。请点击右上角的“强制重启”按钮。"
       show-icon
       class="restart-alert"
     >
       <template #default>
         <div class="alert-content">
-          <span>{{ $t('configs.restartDesc') }}</span>
-          <el-button type="warning" link @click="handleRestart">{{ $t('configs.restartNow') }}</el-button>
+          <span>部分配置更改需要重启系统才能生效。</span>
+          <el-button type="warning" link @click="handleRestart">立即重启</el-button>
         </div>
       </template>
     </el-alert>
@@ -51,7 +53,7 @@
     <div class="filter-section">
       <el-input
         v-model="searchQuery"
-        :placeholder="$t('configs.searchPlaceholder')"
+        placeholder="搜索配置键、值或说明..."
         class="search-input"
         clearable
       >
@@ -59,6 +61,21 @@
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
+    </div>
+
+    <!-- 分类标签页 -->
+    <div class="category-tabs">
+      <el-tabs v-model="activeTab" class="modern-tabs">
+        <el-tab-pane v-for="(cat, key) in categories" :key="key" :name="key">
+          <template #label>
+            <span class="tab-label">
+              <el-icon><component :is="cat.icon" /></el-icon>
+              <span>{{ cat.name }}</span>
+              <el-badge :value="getCategoryCount(key)" :hidden="getCategoryCount(key) === 0" type="info" class="tab-badge" />
+            </span>
+          </template>
+        </el-tab-pane>
+      </el-tabs>
     </div>
 
     <!-- 配置列表表格 -->
@@ -70,20 +87,23 @@
         class="modern-table"
         :header-cell-style="{ background: '#f8fafc', color: '#475569', fontWeight: '600', height: '50px' }"
       >
-        <el-table-column prop="key" :label="$t('configs.key')" width="320">
+        <el-table-column prop="key" label="配置键 (Key)" width="380">
           <template #default="{ row }">
             <div class="key-wrapper">
               <div class="key-icon-bg" :class="{ 'is-schema': row.isSchema && !row.isDynamic }">
                 <el-icon><Setting /></el-icon>
               </div>
               <code class="key-code" :class="{ 'is-schema': row.isSchema && !row.isDynamic }">{{ row.key }}</code>
-              <el-tag v-if="!row.isDynamic" size="small" type="info" effect="plain" class="status-tag">{{ $t('configs.systemDefault') }}</el-tag>
-              <el-tag v-else size="small" type="success" effect="plain" class="status-tag">{{ $t('configs.configured') }}</el-tag>
+              <el-tag v-if="row.value === null || row.value === undefined || row.value === ''" size="small" type="danger" effect="plain" class="status-tag">未配置</el-tag>
+              <template v-else>
+                <el-tag v-if="!row.isDynamic" size="small" type="info" effect="plain" class="status-tag">系统默认</el-tag>
+                <el-tag v-else size="small" type="success" effect="plain" class="status-tag">已配置</el-tag>
+              </template>
             </div>
           </template>
         </el-table-column>
         
-        <el-table-column prop="value" :label="$t('configs.value')" min-width="300">
+        <el-table-column prop="value" label="配置值 (Value)" min-width="300">
           <template #default="{ row }">
             <el-tooltip :content="String(row.value)" placement="top" :disabled="String(row.value).length < 60">
               <div class="value-container">
@@ -91,23 +111,26 @@
                 <el-icon class="copy-icon" @click.stop="copyValue(row.value)"><DocumentCopy /></el-icon>
               </div>
             </el-tooltip>
-            <div v-if="!row.isDynamic" class="unconfigured-hint">
-              <el-icon><InfoFilled /></el-icon> {{ $t('configs.defaultHint') }}
+            <div v-if="row.value === null || row.value === undefined || row.value === ''" class="unconfigured-hint is-empty">
+              <el-icon><Warning /></el-icon> 该项尚未配置，可能会影响系统相关功能
+            </div>
+            <div v-else-if="!row.isDynamic" class="unconfigured-hint">
+              <el-icon><InfoFilled /></el-icon> 当前使用系统默认值，点击编辑可自定义
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="description" :label="$t('configs.description')" min-width="180">
+        <el-table-column prop="description" label="说明" min-width="200">
           <template #default="{ row }">
              <div class="desc-wrapper">
                <span class="desc-text" :class="{ 'no-desc': !row.description }">
-                 {{ row.description || $t('configs.noDescription') }}
+                 {{ row.description || '暂无说明' }}
                </span>
              </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="updated_at" :label="$t('configs.lastUpdated')" width="200" align="center">
+        <el-table-column prop="updated_at" label="最后更新" width="200" align="center">
           <template #default="{ row }">
             <div class="time-wrapper">
               <el-icon><Timer /></el-icon>
@@ -116,14 +139,14 @@
           </template>
         </el-table-column>
 
-        <el-table-column :label="$t('configs.actions')" width="150" fixed="right" align="center">
+        <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-links">
               <el-button link type="primary" @click="editConfig(row)">
-                <el-icon><Edit /></el-icon> {{ $t('configs.edit') }}
+                <el-icon><Edit /></el-icon> 编辑
               </el-button>
               <el-button link type="danger" @click="confirmDelete(row.key)">
-                <el-icon><Delete /></el-icon> {{ $t('configs.delete') }}
+                <el-icon><Delete /></el-icon> 删除
               </el-button>
             </div>
           </template>
@@ -131,7 +154,7 @@
 
         <!-- 空状态 -->
         <template #empty>
-          <el-empty :description="$t('configs.noConfigs')" :image-size="120" />
+          <el-empty description="暂无配置项" :image-size="120" />
         </template>
       </el-table>
     </div>
@@ -139,32 +162,32 @@
     <!-- 新增配置对话框 -->
     <el-dialog 
       v-model="showAddDialog" 
-      :title="$t('configs.addConfigTitle')" 
+      title="新增配置项" 
       width="600px"
       class="modern-dialog"
       destroy-on-close
     >
       <el-form :model="configForm" label-width="100px" label-position="top">
-        <el-form-item :label="$t('configs.key')" required>
-          <el-input v-model="configForm.key" :placeholder="$t('configs.keyPlaceholder')" />
-          <div class="form-tip">{{ $t('configs.keyTip') }}</div>
+        <el-form-item label="配置键 (Key)" required>
+          <el-input v-model="configForm.key" placeholder="例如: browser.max_tabs" />
+          <div class="form-tip">建议使用小写字母和点号分隔，如 browser.timeout</div>
         </el-form-item>
-        <el-form-item :label="$t('configs.value')" required>
+        <el-form-item label="配置值 (Value)" required>
           <el-input 
             v-model="configForm.value" 
             type="textarea" 
             :rows="4" 
-            :placeholder="$t('configs.valuePlaceholder')" 
+            placeholder="请输入配置内容，支持 JSON 字符串" 
           />
         </el-form-item>
-        <el-form-item :label="$t('configs.description')">
-          <el-input v-model="configForm.description" :placeholder="$t('configs.descPlaceholder')" />
+        <el-form-item label="配置说明">
+          <el-input v-model="configForm.description" placeholder="简单描述该配置的用途" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showAddDialog = false" size="large">{{ $t('common.cancel') }}</el-button>
-          <el-button type="primary" @click="saveConfig" :loading="loading" size="large">{{ $t('configs.save') }}</el-button>
+          <el-button @click="showAddDialog = false" size="large">取消</el-button>
+          <el-button type="primary" @click="saveConfig" :loading="loading" size="large">保存配置</el-button>
         </div>
       </template>
     </el-dialog>
@@ -172,32 +195,32 @@
     <!-- 编辑配置对话框 -->
     <el-dialog 
       v-model="showEditDialog" 
-      :title="$t('configs.editConfigTitle')" 
+      title="编辑配置项" 
       width="600px"
       class="modern-dialog"
       destroy-on-close
     >
       <el-form :model="editForm" label-width="100px" label-position="top">
-        <el-form-item :label="$t('configs.key')">
+        <el-form-item label="配置键 (Key)">
           <el-input v-model="editForm.key" disabled />
-          <div class="form-tip">{{ $t('configs.keyImmutable') }}</div>
+          <div class="form-tip">配置键不可修改</div>
         </el-form-item>
-        <el-form-item :label="$t('configs.value')" required>
+        <el-form-item label="配置值 (Value)" required>
           <el-input 
             v-model="editForm.value" 
             type="textarea" 
             :rows="6" 
-            :placeholder="$t('configs.newValuePlaceholder')" 
+            placeholder="请输入新配置内容" 
           />
         </el-form-item>
-        <el-form-item :label="$t('configs.description')">
-          <el-input v-model="editForm.description" :placeholder="$t('configs.updateDescPlaceholder')" />
+        <el-form-item label="配置说明">
+          <el-input v-model="editForm.description" placeholder="更新配置说明" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showEditDialog = false" size="large">{{ $t('common.cancel') }}</el-button>
-          <el-button type="primary" @click="updateConfig" :loading="loading" size="large">{{ $t('configs.submitUpdate') }}</el-button>
+          <el-button @click="showEditDialog = false" size="large">取消</el-button>
+          <el-button type="primary" @click="updateConfig" :loading="loading" size="large">提交更新</el-button>
         </div>
       </template>
     </el-dialog>
@@ -205,67 +228,91 @@
     <!-- 系统日志抽屉 -->
     <el-drawer
       v-model="logDrawerVisible"
-      :title="$t('configs.mainLogs')"
-      size="50%"
+      title="系统主日志"
+      size="60%"
       @closed="stopLogStream"
       class="log-drawer"
     >
       <div class="log-header">
-        <el-checkbox v-model="autoScroll">{{ $t('configs.autoScroll') }}</el-checkbox>
-        <el-button size="small" @click="logContent = ''">{{ $t('configs.clearScreen') }}</el-button>
-        <el-button size="small" type="primary" @click="startLogStream">{{ $t('configs.reconnect') }}</el-button>
+        <div class="log-controls-left">
+          <el-select
+            v-model="selectedLogDate"
+            placeholder="实时日志"
+            size="small"
+            style="width: 140px; margin-right: 10px;"
+            clearable
+            @change="handleLogDateChange"
+          >
+            <el-option
+              v-for="date in availableLogDates"
+              :key="date"
+              :label="date"
+              :value="date"
+            />
+          </el-select>
+          <el-checkbox v-model="autoScroll" :disabled="!!selectedLogDate">自动滚动</el-checkbox>
+        </div>
+        <div class="log-controls-right">
+          <el-button size="small" @click="logContent = ''">清空屏幕</el-button>
+          <el-button size="small" type="primary" @click="startLogStream" :disabled="!!selectedLogDate">重新连接</el-button>
+          <el-button size="small" type="success" @click="downloadLog">
+            <el-icon style="margin-right: 4px;"><Download /></el-icon>导出
+          </el-button>
+        </div>
       </div>
-      <div class="log-container" ref="logContainer">
-        <pre class="log-content">{{ logContent || $t('configs.loadingLogs') }}</pre>
+      <div 
+        class="log-container" 
+        ref="logContainer" 
+        @scroll="handleScroll"
+      >
+        <div v-if="loadingMore" class="loading-more">正在加载历史日志...</div>
+        <div v-if="noMoreLogs" class="no-more">已加载全部历史日志</div>
+        <pre class="log-content">{{ logContent || (selectedLogDate ? '该日期暂无日志' : '正在加载日志...') }}</pre>
       </div>
     </el-drawer>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Plus, Refresh, Delete, Setting, Timer, Search, 
-  Edit, DocumentCopy, InfoFilled, Cpu, Document,
-  Download, Upload
+  Edit, DocumentCopy, InfoFilled, Cpu, Document, Download, Upload, Warning,
+  Monitor, Box, Connection, Cpu as CpuIcon, MagicStick, Cloudy, Share, List
 } from '@element-plus/icons-vue'
 import { 
   getConfigs, 
   getConfigSchema,
   restartSystem,
+  exportConfigs,
   createConfig as createConfigApi, 
   updateConfig as updateConfigApi, 
   deleteConfig as deleteConfigApi,
   downloadBackup,
   restoreBackup
 } from '../api'
+import dayjs from 'dayjs'
 
-// Restore Handler
+const { t } = useI18n()
+
+// Fork-specific encrypted configuration backup/restore actions.
 const fileInput = ref(null)
 
 const handleDownloadBackup = async () => {
   try {
     const response = await downloadBackup()
-    // Create download link
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    
-    // Get filename from header or default
     const contentDisposition = response.headers['content-disposition']
-    let fileName = 'system_backup.json'
-    if (contentDisposition) {
-      const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/)
-      if (fileNameMatch.length === 2)
-        fileName = fileNameMatch[1]
-    }
-    
-    link.setAttribute('download', fileName)
+    const match = contentDisposition && contentDisposition.match(/filename="?(.+)"?$/)
+    link.download = match ? match[1] : 'system_backup.json'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
     ElMessage.success(t('configs.backupSuccess'))
   } catch (error) {
     ElMessage.error(t('configs.backupFailed'))
@@ -273,47 +320,29 @@ const handleDownloadBackup = async () => {
 }
 
 const triggerRestore = () => {
-  fileInput.value.click()
+  fileInput.value?.click()
 }
 
 const handleRestoreFile = async (event) => {
-  const file = event.target.files[0]
+  const file = event.target.files?.[0]
   if (!file) return
-  
   try {
-    await ElMessageBox.confirm(
-      t('configs.restoreConfirm'),
-      t('configs.restoreTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning'
-      }
-    )
-    
-    loading.value = true
-    const result = await restoreBackup(file)
-    
-    let message = t('configs.restoreSuccess')
-    // Optionally format stats
-    ElMessage.success(message)
-    loadConfigs()
-    
-    // Clear input
-    event.target.value = ''
+    await ElMessageBox.confirm(t('configs.restoreConfirm'), t('configs.restoreTitle'), {
+      type: 'warning',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel')
+    })
+    await restoreBackup(file)
+    ElMessage.success(t('configs.restoreSuccess'))
+    await loadConfigs()
   } catch (error) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && error !== 'close') {
       ElMessage.error(t('configs.restoreFailed'))
     }
-    // Clear input
-    event.target.value = ''
   } finally {
-    loading.value = false
+    event.target.value = ''
   }
 }
-import dayjs from 'dayjs'
-
-const { t } = useI18n()
 
 const loading = ref(false)
 const restarting = ref(false)
@@ -321,13 +350,44 @@ const needsRestart = ref(false)
 const configs = ref([])
 const schema = ref([])
 const searchQuery = ref('')
+const activeTab = ref('all')
+const selectedLogDate = ref('')
 
-// 日志相关
-const logDrawerVisible = ref(false)
-const logContent = ref('')
-const autoScroll = ref(true)
-const logContainer = ref(null)
-let logAbortController = null
+// 分类定义
+const categories = {
+  all: { name: '全部配置', icon: 'List' },
+  basic: { name: '基础配置', icon: 'Setting' },
+  browser: { name: '浏览器', icon: 'Monitor' },
+  database: { name: '数据库/队列', icon: 'Box' },
+  worker: { name: '节点/Worker', icon: 'CpuIcon' },
+  proxy: { name: '代理池', icon: 'Connection' },
+  llm: { name: '大模型', icon: 'MagicStick' },
+  oss: { name: '存储(OSS)', icon: 'Cloudy' },
+  other: { name: '其他', icon: 'Share' }
+}
+
+// 键到分类的映射逻辑
+const getCategory = (key) => {
+  if (key.startsWith('app_') || ['debug', 'host', 'port', 'secret_key', 'algorithm', 'access_token_expire_minutes', 'log_level', 'log_file'].includes(key)) {
+    return 'basic'
+  }
+  if (key.startsWith('browser_') || key.startsWith('default_') || ['headless', 'block_images', 'block_media', 'user_agent', 'stealth_mode', 'browser_idle_timeout'].includes(key)) {
+    return 'browser'
+  }
+  if (key.includes('mongo') || key.includes('redis') || key.includes('rabbitmq')) {
+    // 代理池也用 redis，但如果有 proxy 前缀则归类到 proxy
+    if (key.startsWith('proxy_')) return 'proxy'
+    return 'database'
+  }
+  if (key.startsWith('worker_') || key.startsWith('node_') || ['retry_enabled', 'max_retries', 'retry_delay', 'heartbeat_interval', 'max_node_auto_retries'].includes(key)) {
+    return 'worker'
+  }
+  if (key.startsWith('llm_')) return 'llm'
+  if (key.startsWith('oss_')) return 'oss'
+  if (key.startsWith('proxy_')) return 'proxy'
+  if (key.includes('cache')) return 'database' // 缓存也归类到数据库/队列
+  return 'other'
+}
 
 const filteredConfigs = computed(() => {
   // 合并 schema 和现有配置
@@ -335,50 +395,124 @@ const filteredConfigs = computed(() => {
   
   const allItems = schema.value.map(s => {
     const dbConfig = dbConfigsMap.get(s.key)
-    if (dbConfig) {
-      return {
-        ...dbConfig,
-        isDynamic: true,
-        isSchema: true,
-        title: s.title,
-        type: s.type,
-        default: s.default
-      }
-    } else {
-      return {
-        key: s.key,
-        value: s.current_value !== undefined ? s.current_value : s.default,
-        description: s.description,
-        isDynamic: false,
-        isSchema: true,
-        title: s.title,
-        type: s.type,
-        default: s.default,
-        updated_at: null
-      }
+    const item = dbConfig ? {
+      ...dbConfig,
+      isDynamic: true,
+      isSchema: true,
+      title: s.title,
+      type: s.type,
+      default: s.default
+    } : {
+      key: s.key,
+      value: s.current_value !== undefined ? s.current_value : s.default,
+      description: s.description,
+      isDynamic: false,
+      isSchema: true,
+      title: s.title,
+      type: s.type,
+      default: s.default,
+      updated_at: null
     }
+    return { ...item, category: getCategory(item.key) }
   })
 
-  // 添加不在 schema 中的配置（如果有的话）
+  // 添加不在 schema 中的配置
   const schemaKeys = new Set(schema.value.map(s => s.key))
   configs.value.forEach(c => {
     if (!schemaKeys.has(c.key)) {
       allItems.push({
         ...c,
         isDynamic: true,
-        isSchema: false
+        isSchema: false,
+        category: getCategory(c.key)
       })
     }
   })
 
-  if (!searchQuery.value) return allItems
-  const query = searchQuery.value.toLowerCase()
-  return allItems.filter(item => 
-    item.key.toLowerCase().includes(query) || 
-    (item.description && item.description.toLowerCase().includes(query)) ||
-    (item.value && String(item.value).toLowerCase().includes(query))
-  )
+  // 按分类过滤
+  let result = allItems
+  if (activeTab.value !== 'all') {
+    result = allItems.filter(item => item.category === activeTab.value)
+  }
+
+  // 按搜索查询过滤
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(item => 
+      item.key.toLowerCase().includes(query) || 
+      (item.description && item.description.toLowerCase().includes(query)) ||
+      (item.value && String(item.value).toLowerCase().includes(query))
+    )
+  }
+
+  return result
 })
+
+const getCategoryCount = (categoryKey) => {
+  // 计算每个分类的数量，考虑搜索过滤
+  const dbConfigsMap = new Map(configs.value.map(c => [c.key, c]))
+  const allKeys = new Set([...schema.value.map(s => s.key), ...configs.value.map(c => c.key)])
+  
+  const allItems = Array.from(allKeys).map(key => {
+    const s = schema.value.find(item => item.key === key)
+    const dbConfig = dbConfigsMap.get(key)
+    const item = dbConfig ? {
+      ...dbConfig,
+      isDynamic: true,
+      isSchema: !!s,
+      description: dbConfig.description || (s ? s.description : '')
+    } : {
+      key: key,
+      value: s.current_value !== undefined ? s.current_value : s.default,
+      description: s.description,
+      isDynamic: false,
+      isSchema: true
+    }
+    return { ...item, category: getCategory(key) }
+  })
+
+  let filtered = allItems
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = allItems.filter(item => 
+      item.key.toLowerCase().includes(query) || 
+      (item.description && item.description.toLowerCase().includes(query)) ||
+      (item.value && String(item.value).toLowerCase().includes(query))
+    )
+  }
+
+  if (categoryKey === 'all') return filtered.length
+  return filtered.filter(item => item.category === categoryKey).length
+}
+
+// 日志相关
+const logDrawerVisible = ref(false)
+const logContent = ref('')
+const autoScroll = ref(true)
+const logContainer = ref(null)
+const availableLogDates = ref([])
+const loadingMore = ref(false)
+const noMoreLogs = ref(false)
+let currentOffset = ref(0)
+let logAbortController = null
+const PAGE_SIZE = 100
+
+const fetchAvailableLogDates = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const headers = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    const response = await fetch('/api/v1/configs/logs/dates', { headers })
+    if (response.ok) {
+      availableLogDates.value = await response.json()
+    }
+  } catch (error) {
+    console.error('Failed to fetch log dates:', error)
+  }
+}
 
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
@@ -403,7 +537,7 @@ const loadConfigs = async () => {
     configs.value = dbData
     schema.value = schemaData
   } catch (error) {
-    ElMessage.error(t('configs.getConfigsFailed'))
+    ElMessage.error('获取配置信息失败')
   } finally {
     loading.value = false
   }
@@ -412,18 +546,18 @@ const loadConfigs = async () => {
 const handleRestart = async () => {
   try {
     await ElMessageBox.confirm(
-      t('configs.restartConfirm'),
-      t('configs.restartConfirmTitle'),
+      '确定要强制重启后端系统吗？重启期间服务将暂时不可用。',
+      '强制重启确认',
       {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
+        confirmButtonText: '确定重启',
+        cancelButtonText: '取消',
         type: 'warning'
       }
     )
     
     restarting.value = true
     await restartSystem()
-    ElMessage.success(t('configs.restartSent'))
+    ElMessage.success('重启指令已发送，请稍后刷新页面')
     needsRestart.value = false
     
     // 延迟几秒后尝试刷新页面
@@ -432,7 +566,7 @@ const handleRestart = async () => {
     }, 3000)
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(t('configs.restartFailed'))
+      ElMessage.error('重启请求失败')
     }
   } finally {
     restarting.value = false
@@ -441,20 +575,20 @@ const handleRestart = async () => {
 
 const saveConfig = async () => {
   if (!configForm.value.key || configForm.value.value === undefined || configForm.value.value === '') {
-    ElMessage.warning(t('configs.fillRequired'))
+    ElMessage.warning('请填写必填项')
     return
   }
   loading.value = true
   try {
     await createConfigApi(configForm.value)
-    ElMessage.success(t('configs.createSuccess'))
+    ElMessage.success('配置已创建')
     showAddDialog.value = false
     needsRestart.value = true
     // 重置表单
     configForm.value = { key: '', value: '', description: '' }
     loadConfigs()
   } catch (error) {
-    ElMessage.error(t('configs.createFailed'))
+    ElMessage.error('创建配置失败')
   } finally {
     loading.value = false
   }
@@ -471,7 +605,7 @@ const editConfig = (row) => {
 
 const updateConfig = async () => {
   if (editForm.value.value === undefined || editForm.value.value === '') {
-    ElMessage.warning(t('configs.valueNotEmpty'))
+    ElMessage.warning('配置值不能为空')
     return
   }
   loading.value = true
@@ -503,12 +637,12 @@ const updateConfig = async () => {
       })
     }
     
-    ElMessage.success(t('configs.updateSuccess'))
+    ElMessage.success('配置已更新')
     showEditDialog.value = false
     needsRestart.value = true
     loadConfigs()
   } catch (error) {
-    ElMessage.error(t('configs.updateFailed'))
+    ElMessage.error('更新配置失败')
   } finally {
     loading.value = false
   }
@@ -516,11 +650,11 @@ const updateConfig = async () => {
 
 const confirmDelete = (key) => {
   ElMessageBox.confirm(
-    t('configs.deleteConfirm', { key: key }),
-    t('configs.deleteConfirmTitle'),
+    `确定要永久删除配置项 "${key}" 吗？此操作不可恢复。`,
+    '安全警告',
     {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
       type: 'error',
       confirmButtonClass: 'el-button--danger',
     }
@@ -532,16 +666,16 @@ const confirmDelete = (key) => {
 const deleteConfig = async (key) => {
   try {
     await deleteConfigApi(key)
-    ElMessage.success(t('configs.deleteSuccess'))
+    ElMessage.success('配置已删除')
     loadConfigs()
   } catch (error) {
-    ElMessage.error(t('configs.deleteFailed'))
+    ElMessage.error('删除配置失败')
   }
 }
 
 const copyValue = (value) => {
   navigator.clipboard.writeText(String(value)).then(() => {
-    ElMessage.success(t('configs.copySuccess'))
+    ElMessage.success('配置值已复制到剪贴板')
   })
 }
 
@@ -550,11 +684,122 @@ const formatDate = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 }
 
+const handleExport = async () => {
+  try {
+    const response = await exportConfigs()
+    
+    // 获取文件名
+    let filename = 'configs.env'
+    const contentDisposition = response.headers['content-disposition']
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename=(.+)/)
+      if (filenameMatch.length > 1) filename = filenameMatch[1]
+    }
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    
+    // 清理
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success('配置导出成功')
+  } catch (error) {
+    console.error('Export failed:', error)
+    ElMessage.error('导出配置失败')
+  }
+}
+
 // 日志处理方法
 const handleViewSystemLogs = () => {
   logContent.value = ''
+  selectedLogDate.value = ''
   logDrawerVisible.value = true
+  fetchAvailableLogDates()
   startLogStream()
+}
+
+const handleLogDateChange = (val) => {
+  logContent.value = ''
+  currentOffset.value = 0
+  noMoreLogs.value = false
+  startLogStream()
+}
+
+const handleScroll = async (e) => {
+  if (autoScroll.value) {
+    // 检查是否手动向上滚动，如果是则关闭自动滚动
+    const { scrollTop, scrollHeight, clientHeight } = e.target
+    if (scrollTop + clientHeight < scrollHeight - 50) {
+      autoScroll.value = false
+    }
+  }
+
+  // 向上滚动加载更多
+  if (e.target.scrollTop === 0 && !loadingMore.value && !noMoreLogs.value) {
+    await loadMoreLogs()
+  }
+}
+
+const loadMoreLogs = async () => {
+  if (loadingMore.value || noMoreLogs.value) return
+  
+  loadingMore.value = true
+  const oldScrollHeight = logContainer.value.scrollHeight
+  
+  try {
+    const token = localStorage.getItem('token')
+    const headers = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    // 增加 offset
+    currentOffset.value += PAGE_SIZE
+    
+    let url = `/api/v1/configs/logs?lines=${PAGE_SIZE}&offset=${currentOffset.value}`
+    if (selectedLogDate.value) {
+      url += `&date=${selectedLogDate.value}`
+    }
+    
+    const response = await fetch(url, { headers })
+    if (response.ok) {
+      const text = await response.text()
+      if (text.trim()) {
+        logContent.value = text + logContent.value
+        // 保持滚动位置
+        nextTick(() => {
+          if (logContainer.value) {
+            logContainer.value.scrollTop = logContainer.value.scrollHeight - oldScrollHeight
+          }
+        })
+      } else {
+        noMoreLogs.value = true
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load more logs:', error)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const downloadLog = () => {
+  const token = localStorage.getItem('token')
+  const dateParam = selectedLogDate.value ? `&date=${selectedLogDate.value}` : ''
+  const url = `/api/v1/configs/logs?download=true${dateParam}&token=${token}`
+  
+  const link = document.createElement('a')
+  link.href = url
+  link.target = '_blank'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 const startLogStream = async () => {
@@ -571,7 +816,16 @@ const startLogStream = async () => {
       headers['Authorization'] = `Bearer ${token}`
     }
     
-    const response = await fetch(`/api/v1/configs/logs?stream=true&lines=100`, {
+    // 构建 URL
+    let url = '/api/v1/configs/logs?'
+    if (selectedLogDate.value) {
+      // 选择日期时，先获取最后一页
+      url += `date=${selectedLogDate.value}&lines=${PAGE_SIZE}&offset=0`
+    } else {
+      url += `stream=true&lines=${PAGE_SIZE}`
+    }
+    
+    const response = await fetch(url, {
       headers,
       signal: logAbortController.signal
     })
@@ -591,11 +845,6 @@ const startLogStream = async () => {
       
       const chunk = decoder.decode(value, { stream: true })
       logContent.value += chunk
-      
-      // 限制日志显示长度
-      if (logContent.value.length > 50000) {
-        logContent.value = logContent.value.substring(logContent.value.length - 50000)
-      }
       
       if (autoScroll.value) {
         scrollToBottom()
@@ -686,23 +935,88 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+.category-tabs {
+  margin-bottom: 20px;
+  background: #fff;
+  padding: 0 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.modern-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.modern-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.modern-tabs :deep(.el-tabs__item) {
+  height: 60px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #64748b;
+  transition: all 0.3s;
+}
+
+.modern-tabs :deep(.el-tabs__item.is-active) {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.tab-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-badge {
+  margin-left: 4px;
+}
+
+.tab-badge :deep(.el-badge__content) {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: none;
+}
+
+.modern-tabs :deep(.el-tabs__item.is-active) .tab-badge :deep(.el-badge__content) {
+  background-color: #eff6ff;
+  color: #3b82f6;
+}
+
 /* 日志抽屉样式 */
 .log-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
   padding: 10px 20px;
   background-color: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
 }
 
+.log-controls-left, .log-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .log-container {
-  height: calc(100% - 45px);
+  height: calc(100% - 50px);
   background-color: #0f172a;
   color: #e2e8f0;
   padding: 15px;
   overflow-y: auto;
   font-family: 'Fira Code', 'Courier New', Courier, monospace;
+  position: relative;
+}
+
+.loading-more, .no-more {
+  text-align: center;
+  padding: 10px;
+  color: #888;
+  font-size: 12px;
 }
 
 .log-content {
@@ -818,6 +1132,11 @@ onMounted(() => {
   gap: 4px;
 }
 
+.unconfigured-hint.is-empty {
+  color: #ef4444;
+  font-weight: 500;
+}
+
 .copy-icon {
   font-size: 14px;
   color: #94a3b8;
@@ -851,7 +1170,7 @@ onMounted(() => {
   justify-content: center;
   gap: 6px;
   color: #64748b;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .action-links {

@@ -130,6 +130,13 @@ const features = [
   {
     title: t('home.features.stealth'),
     desc: t('home.features.stealthDesc'),
+    icon: Cpu,
+    color: '#7232dd',
+    bg: '#f2ecff'
+  },
+  {
+    title: '多模式解析',
+    desc: '集成 GNE、XPath 与 LLM 大模型，支持从规则配置到语义化的结构化数据提取。',
     icon: MagicStick,
     color: '#67C23A',
     bg: '#f0f9eb'
@@ -149,6 +156,20 @@ const features = [
     bg: '#fef0f0'
   },
   {
+    title: '智能代理池',
+    desc: '内置 SOCKS5/HTTP 代理池，具备一键检测与故障自动熔断机制，保障采集稳定。',
+    icon: Operation,
+    color: '#409EFF',
+    bg: '#ecf5ff'
+  },
+  {
+    title: '自动化调度',
+    desc: '内置 Cron 调度引擎，支持定时周期性任务，实现全自动数据监控与采集流水线。',
+    icon: Timer,
+    color: '#E6A23C',
+    bg: '#fdf6ec'
+  },
+  {
     title: t('home.features.monitor'),
     desc: t('home.features.monitorDesc'),
     icon: DataAnalysis,
@@ -159,11 +180,38 @@ const features = [
     title: t('home.features.optimize'),
     desc: t('home.features.optimizeDesc'),
     icon: Monitor,
+    color: '#67C23A',
+    bg: '#f0f9eb'
+  },
+  {
+    title: '云端确权存储',
+    desc: '支持 HTML 源码与截图自动同步至 OSS，解决海量数据存储与私有访问需求。',
+    icon: Files,
+    color: '#409EFF',
+    bg: '#ecf5ff'
+  },
+  {
+    title: 'API 实时拦截',
+    desc: '支持在页面渲染过程中深度拦截并提取特定 XHR/Fetch 接口的原始响应数据。',
+    icon: Monitor,
+    color: '#67C23A',
+    bg: '#f0f9eb'
+  },
+  {
+    title: '隐身与反检测',
+    desc: '集成指纹抹除、Stealth 插件及自定义 UserAgent，完美模拟真实浏览器行为。',
+    icon: Lock,
     color: '#7232dd',
     bg: '#f2ecff'
+  },
+  {
+    title: '实时状态监控',
+    desc: '多维度统计任务成功率、处理时长及队列状态，实时掌握集群运行动态。',
+    icon: DataAnalysis,
+    color: '#F56C6C',
+    bg: '#fef0f0'
   }
 ]
-
 const openDocs = () => {
   window.open('https://github.com/934050259/BrowserCluster', '_blank')
 }
@@ -505,3 +553,4 @@ const openDocs = () => {
   }
 }
 </style>
+

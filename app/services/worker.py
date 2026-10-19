@@ -4,15 +4,20 @@ Worker 工作进程模块
 从消息队列消费任务并执行网页抓取
 """
 import asyncio
+import copy
 import logging
+import time
 from datetime import datetime
+from urllib.parse import urlparse
 from app.services.queue_service import rabbitmq_service
 from app.services.cache_service import cache_service
 from app.core.scraper import scraper
+from app.services.parser_service import parser_service
+from app.services.oss_service import oss_service
 from app.core.config import settings
 from app.db.mongo import mongo
-from app.db.redis import redis_client
 from app.core.browser import browser_manager
+from app.core.drission_browser import drission_manager
 
 logger = logging.getLogger(__name__)
 
@@ -29,60 +34,268 @@ class Worker:
         """
         self.node_id = node_id or settings.node_id
         self.is_running = False  # 运行状态标志
-        self.active_tasks = set()  # 当前正在处理的任务 ID 集合
+        self.active_tasks = {}  # 当前正在处理的任务 ID -> 任务数据 映射
 
-    async def process_task(self, task_data: dict):
+    async def process_task(self, task_data: dict, channel=None, method=None):
         """
         处理单个任务
 
         Args:
             task_data: 任务数据字典
+            channel: RabbitMQ 通道对象 (用于手动 ACK)
+            method: RabbitMQ 消息元数据 (用于手动 ACK)
         """
         # 提取任务信息
         task_id = task_data.get("task_id")
         url = task_data.get("url")
-        params = task_data.get("params", {})
+        # Keep the request parameters used to build the full-task cache key
+        # separate from the effective browser parameters.  Domain rules may
+        # enrich ``params`` below, while the API cache key is based on the
+        # parameters supplied by the caller.
+        cache_params = copy.deepcopy(task_data.get("params") or {})
+        params = copy.deepcopy(cache_params)
+        cache_config = dict(task_data.get("cache") or {})
+        cache_enabled = cache_config.get("enabled")
+        if cache_enabled is None:
+            cache_enabled = settings.cache_enabled
+        cache_ttl = cache_config.get("ttl")
+        # The scraper owns the HTML and LLM cache layers.  Pass request-level
+        # controls explicitly so a disabled task never creates those entries,
+        # and a task TTL applies to all of its cache layers.
+        params["cache_enabled"] = bool(cache_enabled)
+        if cache_ttl is not None:
+            params["_cache_ttl"] = cache_ttl
+        execution_type = task_data.get("execution_type", "production")
 
         if not task_id:
             return
 
+        # 动态重载配置，确保使用最新的 LLM 等设置
+        try:
+            await asyncio.to_thread(settings.load_from_db)
+        except Exception as e:
+            logger.warning(f"Failed to reload settings from DB: {e}")
+
+        # 检查是否匹配网站规则配置
+        domain = urlparse(url).netloc
+        # 获取匹配该域名的规则，按优先级排序
+        try:
+            rules = await asyncio.to_thread(
+                lambda: list(mongo.parsing_rules.find({"is_active": True}).sort("priority", -1))
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch rules from MongoDB: {e}")
+            rules = []
+
+        matched_rule = None
+
+        for rule in rules:
+            rule_domain = rule.get("domain", "")
+            if rule_domain == domain:
+                matched_rule = rule
+                break
+            if rule_domain.startswith("*."):
+                suffix = rule_domain[1:] # .example.com
+                if domain.endswith(suffix):
+                    matched_rule = rule
+                    break
+
+        if matched_rule:
+            logger.info(f"Applying rule settings for domain {domain} (Rule: {matched_rule['domain']})")
+            # 记录匹配到的规则信息
+            params["matched_rule"] = matched_rule.get("domain")
+            applied_changes = True
+
+            # 1. 解析配置 (如果任务没有指定)
+            if not params.get("parser"):
+                params["parser"] = matched_rule.get("parser_type")
+                params["parser_config"] = matched_rule.get("parser_config")
+
+            # 2. 浏览器特征与高级配置 (如果任务参数中对应值为 None 或默认值，则应用规则)
+            # 定义需要从规则中同步的字段
+            sync_fields = [
+                "engine", "wait_for", "timeout", "viewport", "stealth",
+                "save_html", "screenshot", "is_fullscreen", "block_images",
+                "intercept_apis", "intercept_continue", "proxy", "proxy_pool_group",
+                "cookie_group",
+                "storage_type", "mongo_collection", "oss_path", "return_cookies", "user_agent"
+            ]
+
+            applied_changes = False
+            for field in sync_fields:
+                # 特殊处理 proxy: 如果是空对象也视为 None，以便继承规则中的代理
+                val = params.get(field)
+                if field == "proxy" and isinstance(val, dict) and not val.get("server"):
+                    val = None
+
+                # 只有当 params 中没有该字段，或者该字段是 None 时，才使用规则配置
+                # 这样可以确保用户手动设置的参数（即使是默认值）不会被覆盖
+                # 注意：这里我们假设前端传递参数时，未设置的参数是 None 或不在 dict 中
+                # 如果前端传递了默认值（如 False, 0, ""），则视为用户明确意图，不覆盖
+                if field not in params or val is None:
+                    rule_val = matched_rule.get(field)
+                    if rule_val is not None:
+                        params[field] = rule_val
+                        applied_changes = True
+
+            # 3. Cookies & Cookie 池 (如果任务没有指定)
+            if not params.get("cookies") and not params.get("cookie_group"):
+                if matched_rule.get("cookie_group"):
+                    params["cookie_group"] = matched_rule.get("cookie_group")
+                    applied_changes = True
+                elif matched_rule.get("cookies"):
+                    params["cookies"] = matched_rule.get("cookies")
+                    applied_changes = True
+
+            # 如果应用了规则中的配置，同步回数据库以便前端显示正确的代理/参数信息
+            if applied_changes:
+                try:
+                    persisted_params = {
+                        key: value
+                        for key, value in params.items()
+                        if key not in {"cache_enabled", "_cache_ttl"}
+                    }
+                    await asyncio.to_thread(
+                        mongo.tasks.update_one,
+                        {"task_id": task_id},
+                        {"$set": {"params": persisted_params}}
+                    )
+                    logger.info(f"Synced inherited rule params to database for task {task_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to sync inherited params to DB for task {task_id}: {e}")
+
         logger.info(f"Processing task {task_id}: {url}")
-        
+
         # 检查任务是否仍然存在于数据库中（可能已被删除）
-        task = mongo.tasks.find_one({"task_id": task_id})
+        try:
+            task = await asyncio.to_thread(mongo.tasks.find_one, {"task_id": task_id})
+        except Exception as e:
+            logger.error(f"Failed to find task in MongoDB: {e}")
+            return
+
         if not task:
             logger.warning(f"Task {task_id} not found in database, it may have been deleted. Skipping.")
             return
 
-        self.active_tasks.add(task_id)
-
-        try:
-            # 检查是否启用缓存并命中
-            cache_config = task_data.get("cache", {})
-            if cache_config.get("enabled"):
-                cached_result = await cache_service.get(url, params)
-                if cached_result:
-                    logger.info(f"Task {task_id} hit cache in worker, skipping scrape")
-                    # 更新任务为成功状态并标记命中缓存
-                    # 注意：cached_result 就是完整的抓取结果
-                    update_data = {
-                        "status": "success",
-                        "result": cached_result,  # 缓存中存储的就是完整结果
-                        "cached": True,
-                        "html_cached": cached_result.get("html_cached", True),
-                        "agent_cached": cached_result.get("agent_cached", True),
-                        "node_id": self.node_id,
-                        "updated_at": datetime.now(),
-                        "completed_at": datetime.now()
-                    }
-                    mongo.tasks.update_one({"task_id": task_id}, {"$set": update_data})
+        # Full-task cache is checked after confirming the task still exists,
+        # but before applying domain rules or starting a browser.  This keeps
+        # the key consistent with the API and avoids returning a transient
+        # failed Agent result that may have been written by an older worker.
+        if cache_enabled:
+            try:
+                cached = await cache_service.get(url, cache_params)
+            except Exception as exc:
+                logger.warning("Failed to read task cache for %s: %s", url, exc)
+                cached = None
+            if cached:
+                cached_result = (
+                    cached.get("result")
+                    if isinstance(cached, dict) and "result" in cached
+                    else cached
+                )
+                if not isinstance(cached_result, dict):
+                    cached_result = {}
+                agent_result = cached_result.get("agent_result")
+                if isinstance(agent_result, dict) and agent_result.get("status") == "failed":
+                    logger.info("Ignoring failed Agent result in task cache for %s", task_id)
+                else:
+                    completed_at = (
+                        cached.get("completed_at")
+                        if isinstance(cached, dict)
+                        else None
+                    )
+                    now = datetime.now()
+                    await asyncio.to_thread(
+                        mongo.tasks.update_one,
+                        {"task_id": task_id},
+                        {
+                            "$set": {
+                                "status": "success",
+                                "result": cached_result,
+                                "cached": True,
+                                "html_cached": cached.get(
+                                    "html_cached",
+                                    cached_result.get("html_cached", True),
+                                ) if isinstance(cached, dict) else cached_result.get("html_cached", True),
+                                "agent_cached": cached.get(
+                                    "agent_cached",
+                                    cached_result.get("agent_cached", True),
+                                ) if isinstance(cached, dict) else cached_result.get("agent_cached", True),
+                                "node_id": self.node_id,
+                                "execution_type": execution_type,
+                                "updated_at": now,
+                                "completed_at": completed_at or now,
+                            },
+                            "$unset": {"error": ""},
+                        },
+                    )
+                    logger.info("Task %s hit full cache, skipping scrape", task_id)
+                    # This branch returns before the normal finally block, so
+                    # settle the RabbitMQ delivery explicitly.
+                    if channel and method:
+                        try:
+                            if self.is_running:
+                                rabbitmq_service.ack_message(channel, method.delivery_tag)
+                            else:
+                                rabbitmq_service.nack_message(
+                                    channel, method.delivery_tag, requeue=True
+                                )
+                        except Exception as exc:
+                            logger.error("Failed to ACK cached task %s: %s", task_id, exc)
                     return
 
-            # 更新任务状态为处理中
-            await self._update_task_status(task_id, "processing", self.node_id)
+        self.active_tasks[task_id] = task_data
+        current_active_count = len(self.active_tasks)
+        logger.info(f"Processing task {task_id}: {url} (Active tasks: {current_active_count}/{settings.worker_concurrency})")
 
-            # 执行抓取
-            result = await scraper.scrape(url, params, self.node_id)
+        current_retry_count = task.get("retry_count", 0)
+
+        # 优先使用任务级别的重试配置，如果没有则使用全局配置
+        retry_enabled = task_data.get("retry_enabled", settings.retry_enabled)
+        max_retries = task_data.get("max_retries", settings.max_retries)
+
+        try:
+            # 更新任务状态为处理中
+            await self._update_task_status(task_id, "processing", self.node_id, execution_type)
+
+            # 获取任务超时设置 (默认使用全局配置，可被任务参数覆盖)
+            task_timeout = params.get("timeout", settings.default_timeout) / 1000 + 30  # 基础超时 + 30秒缓冲
+
+            async def do_work():
+                # 1. 执行抓取
+                res = await scraper.scrape(url, params, self.node_id)
+
+                # 2. 如果抓取成功且配置了解析服务，执行解析
+                if res["status"] == "success" and params.get("parser") and params["parser"] != "none":
+                    parser_type = params["parser"]
+                    parser_config = params.get("parser_config", {})
+                    html_content = res.get("html", "")
+
+                    if html_content:
+                        logger.info(f"Parsing content for task {task_id} using {parser_type}")
+                        parsed_data = await parser_service.parse(html_content, parser_type, parser_config, base_url=url)
+                        res["parsed_data"] = parsed_data
+
+                return res
+
+            # 执行抓取与解析 (整体超时控制)
+            try:
+                result = await asyncio.wait_for(do_work(), timeout=task_timeout)
+            except asyncio.TimeoutError:
+                logger.error(f"Task {task_id} timed out after {task_timeout}s overall")
+                result = {
+                    "status": "failed",
+                    "error": {"message": f"Task execution timed out after {task_timeout}s", "type": "TimeoutError"}
+                }
+            except Exception as e:
+                logger.error(f"Task {task_id} work failed with error: {e}")
+                result = {
+                    "status": "failed",
+                    "error": {"message": str(e), "type": type(e).__name__}
+                }
+
+            # 这里重新判断是否需要保存html
+            result["html"] = result.get("html", "") if params.get("save_html", True) else ""
 
             # 检查 Worker 是否在执行过程中被停止
             if not self.is_running:
@@ -92,43 +305,136 @@ class Worker:
             # 处理抓取结果
             if result["status"] == "success":
                 # 更新任务状态为成功
-                await self._update_task_success(task_id, result)
+                await self._update_task_success(task_id, result, params, execution_type)
 
                 # 如果启用缓存，则保存结果到缓存
-                # 但需要检查 agent_result 是否失败，失败的结果不应缓存
-                if task_data.get("cache", {}).get("enabled"):
-                    should_cache = True
-                    agent_result = result.get("agent_result")
-                    if agent_result:
-                        agent_status = agent_result.get("status")
-                        if agent_status == "failed":
-                            should_cache = False
-                            logger.warning(f"Task {task_id}: Skipping cache due to failed agent_result")
-                    
-                    if should_cache:
-                        await cache_service.set(
-                            url,
-                            params,
-                            result,
-                            task_data["cache"].get("ttl"),
-                            task_id=task_id
-                        )
+                agent_result = result.get("agent_result")
+                should_cache = not (
+                    isinstance(agent_result, dict)
+                    and agent_result.get("status") == "failed"
+                )
+                if cache_enabled and should_cache:
+                    # 构造缓存数据，包含状态和结果，与数据库结构保持一致
+                    cache_data = {
+                        "status": "success",
+                        "result": result,
+                        "completed_at": datetime.now().isoformat(),
+                        "html_cached": result.get("html_cached", False),
+                        "agent_cached": result.get("agent_cached", False),
+                    }
+                    await cache_service.set(
+                        url,
+                        cache_params,
+                        cache_data,
+                        cache_ttl,
+                        task_id=task_id
+                    )
+                elif cache_enabled:
+                    logger.warning("Task %s: skipping full cache because Agent extraction failed", task_id)
 
                 logger.info(f"Task {task_id} completed successfully")
             else:
-                # 更新任务状态为失败
-                await self._update_task_failed(task_id, result["error"])
-                logger.error(f"Task {task_id} failed: {result['error']}")
+                # 检查是否可以自动重试
+                if retry_enabled and current_retry_count < max_retries:
+                    new_retry_count = current_retry_count + 1
+                    error = result.get("error")
+                    error_message = error.get("message") if isinstance(error, dict) else str(error)
+                    logger.warning(f"Task {task_id} failed, retrying ({new_retry_count}/{max_retries}). Error: {error_message}")
+
+                    # 更新数据库中的重试次数和状态
+                    try:
+                        await asyncio.to_thread(
+                            mongo.tasks.update_one,
+                            {"task_id": task_id},
+                            {
+                                "$set": {
+                                    "retry_count": new_retry_count,
+                                    "status": "pending",
+                                    "updated_at": datetime.now()
+                                },
+                                "$unset": {"error": ""}
+                            }
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to update retry status in MongoDB: {e}")
+
+                    # 延迟重试
+                    if settings.retry_delay > 0:
+                        await asyncio.sleep(settings.retry_delay)
+
+                    # 重新入队
+                    # 确保重试任务也携带 execution_type
+                    retry_params = {
+                        key: value
+                        for key, value in params.items()
+                        if key not in {"cache_enabled", "_cache_ttl"}
+                    }
+                    task_data["params"] = retry_params
+                    task_data["retry_count"] = new_retry_count
+                    task_data["status"] = "pending"
+                    await asyncio.to_thread(rabbitmq_service.publish_task, task_data)
+                else:
+                    # 超过重试次数，标记为失败
+                    await self._update_task_failed(task_id, result["error"], execution_type)
+                    logger.error(f"Task {task_id} failed after {current_retry_count} retries: {result['error']}")
 
         except Exception as e:
             # 处理异常
             if self.is_running:
-                await self._update_task_failed(task_id, {"message": str(e)})
+                # 异常也尝试重试
+                if 'current_retry_count' in locals() and current_retry_count < settings.max_retries:
+                    new_retry_count = current_retry_count + 1
+                    logger.warning(f"Task {task_id} encountered exception, retrying ({new_retry_count}/{settings.max_retries}). Error: {e}")
+
+                    try:
+                        await asyncio.to_thread(
+                            mongo.tasks.update_one,
+                            {"task_id": task_id},
+                            {
+                                "$set": {
+                                    "retry_count": new_retry_count,
+                                    "status": "pending",
+                                    "updated_at": datetime.now()
+                                },
+                                "$unset": {"error": ""}
+                            }
+                        )
+                    except Exception as mongo_err:
+                        logger.error(f"Failed to update retry status after exception in MongoDB: {mongo_err}")
+
+                    if settings.retry_delay > 0:
+                        await asyncio.sleep(settings.retry_delay)
+
+                    # 确保重试任务也携带 execution_type
+                    retry_params = {
+                        key: value
+                        for key, value in params.items()
+                        if key not in {"cache_enabled", "_cache_ttl"}
+                    }
+                    task_data["params"] = retry_params
+                    task_data["retry_count"] = new_retry_count
+                    task_data["status"] = "pending"
+                    await asyncio.to_thread(rabbitmq_service.publish_task, task_data)
+                else:
+                    await self._update_task_failed(task_id, {"message": str(e)}, execution_type)
             logger.error(f"Task {task_id} error: {e}", exc_info=True)
         finally:
-            self.active_tasks.discard(task_id)
+            self.active_tasks.pop(task_id, None)
 
-    async def _update_task_status(self, task_id: str, status: str, node_id: str = None):
+            # 手动确认消息
+            if channel and method:
+                try:
+                    # 如果 Worker 仍在运行，说明任务已处理完成（无论成功失败），确认消息
+                    if self.is_running:
+                        rabbitmq_service.ack_message(channel, method.delivery_tag)
+                    else:
+                        # 如果 Worker 已停止，说明任务可能被中断，拒绝消息并重新入队
+                        logger.info(f"Worker stopping, NACKing task {task_id} to requeue")
+                        rabbitmq_service.nack_message(channel, method.delivery_tag, requeue=True)
+                except Exception as e:
+                    logger.error(f"Failed to ACK/NACK task {task_id}: {e}")
+
+    async def _update_task_status(self, task_id: str, status: str, node_id: str = None, execution_type: str = "production"):
         """
         更新任务状态
 
@@ -136,59 +442,161 @@ class Worker:
             task_id: 任务 ID
             status: 任务状态
             node_id: 处理节点 ID
+            execution_type: 执行类型
         """
-        mongo.tasks.update_one(
-            {"task_id": task_id},
-            {
-                "$set": {
-                    "status": status,
-                    "node_id": node_id,
-                    "updated_at": datetime.now()
+        try:
+            await asyncio.to_thread(
+                mongo.tasks.update_one,
+                {"task_id": task_id},
+                {
+                    "$set": {
+                        "status": status,
+                        "node_id": node_id,
+                        "execution_type": execution_type,
+                        "updated_at": datetime.now()
+                    },
+                    "$unset": {
+                        "error": ""
+                    }
                 }
-            }
-        )
+            )
+        except Exception as e:
+            logger.error(f"Failed to update task status in MongoDB: {e}")
 
-    async def _update_task_success(self, task_id: str, result: dict):
+    async def _update_task_success(self, task_id: str, result: dict, params: dict = None, execution_type: str = "production"):
         """
         更新任务为成功状态
 
         Args:
             task_id: 任务 ID
             result: 抓取结果
+            params: 任务参数
+            execution_type: 执行类型
         """
-        mongo.tasks.update_one(
-            {"task_id": task_id},
-            {
-                "$set": {
-                    "status": "success",
-                    "result": result,
-                    "html_cached": result.get("html_cached", False),
-                    "agent_cached": result.get("agent_cached", False),
-                    "updated_at": datetime.now(),
-                    "completed_at": datetime.now()
-                }
-            }
-        )
+        # 处理存储逻辑
+        if params:
+            storage_type = params.get("storage_type", "mongo")
+            save_html = params.get("save_html", True)
+            oss_path = params.get("oss_path")
+            mongo_collection = params.get("mongo_collection")
 
-    async def _update_task_failed(self, task_id: str, error: dict):
+            # 如果不保存 HTML，从结果中移除
+            if not save_html:
+                result.pop("html", None)
+
+            # 处理 OSS 存储
+            if storage_type == "oss":
+                html = result.get("html")
+                screenshot = result.get("screenshot")
+
+                # 上传到 OSS (如果显式指定了 OSS，则强制上传，忽略全局开关)
+                # 如果是测试任务，OSS 路径增加 test/ 前缀
+                # 即使没有 custom_path，也要确保默认路径前缀为 test/
+                if execution_type == "test":
+                    if oss_path:
+                        if not oss_path.startswith("test/"):
+                            oss_path = f"test/{oss_path}"
+                    else:
+                        oss_path = "test/"
+
+                html_url, screenshot_url = oss_service.upload_task_assets(task_id, html, screenshot, force=True, custom_path=oss_path)
+
+                # 更新结果：OSS 存储时，移除原始 html/screenshot 字段，仅保留 oss_ 路径
+                if html_url:
+                    result["oss_html"] = html_url  # 显式保存 OSS 路径
+                    result.pop("html", None)       # 移除原始字段
+
+                if screenshot_url:
+                    result["oss_screenshot"] = screenshot_url  # 显式保存 OSS 路径
+                    result.pop("screenshot", None)             # 移除原始字段
+
+                # 如果成功上传了任一资源，标记为 oss 存储
+                if html_url or screenshot_url:
+                    result["storage_type"] = "oss"
+                else:
+                    # 如果 OSS 上传失败且原本有数据，则保留原始数据（存入 Mongo）
+                    # 这样可以防止数据丢失，同时在 UI 上显示为存入 Mongo
+                    result["storage_type"] = "mongo"
+                    logger.warning(f"OSS upload failed for task {task_id}, falling back to MongoDB storage")
+
+            # 处理自定义 MongoDB 存储
+            # 如果提供了 mongo_collection 或者明确指定了 storage_type 为 mongo
+            if storage_type == "mongo":
+                target_collection = (mongo_collection or "tasks_results").strip()
+
+                # 如果是测试执行，存入测试集合 (增加 test_ 前缀)
+                if execution_type == "test":
+                    if not target_collection.startswith("test_"):
+                        target_collection = f"test_{target_collection}"
+                    logger.info(f"Test task {task_id} will be saved to test collection: {target_collection}")
+
+                try:
+                    # 确保集合名称合法且不为系统集合
+                    if target_collection and not target_collection.startswith("system."):
+                        # 避免重复保存到主 tasks 集合 (如果 target_collection 就是 tasks)
+                        if target_collection != "tasks":
+                            await asyncio.to_thread(
+                                mongo.db[target_collection].insert_one,
+                                {
+                                    "task_id": task_id,
+                                    "url": result.get("metadata", {}).get("url") or task_id,
+                                    "result": result,
+                                    "execution_type": execution_type,
+                                    "timestamp": datetime.now()
+                                }
+                            )
+                            logger.info(f"Task {task_id} result also saved to collection: {target_collection}")
+                except Exception as e:
+                    logger.error(f"Failed to save task {task_id} to collection {target_collection}: {e}")
+
+        try:
+            await asyncio.to_thread(
+                mongo.tasks.update_one,
+                {"task_id": task_id},
+                {
+                    "$set": {
+                        "status": "success",
+                        "result": result,
+                        "cached": False,
+                        "html_cached": result.get("html_cached", False),
+                        "agent_cached": result.get("agent_cached", False),
+                        "execution_type": execution_type,
+                        "updated_at": datetime.now(),
+                        "completed_at": datetime.now()
+                    },
+                    "$unset": {
+                        "error": ""
+                    }
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to update task success in MongoDB: {e}")
+
+    async def _update_task_failed(self, task_id: str, error: dict, execution_type: str = "production"):
         """
         更新任务为失败状态
 
         Args:
             task_id: 任务 ID
             error: 错误信息
+            execution_type: 执行类型
         """
-        mongo.tasks.update_one(
-            {"task_id": task_id},
-            {
-                "$set": {
-                    "status": "failed",
-                    "error": error,
-                    "updated_at": datetime.now(),
-                    "completed_at": datetime.now()
+        try:
+            await asyncio.to_thread(
+                mongo.tasks.update_one,
+                {"task_id": task_id},
+                {
+                    "$set": {
+                        "status": "failed",
+                        "error": error,
+                        "execution_type": execution_type,
+                        "updated_at": datetime.now(),
+                        "completed_at": datetime.now()
+                    }
                 }
-            }
-        )
+            )
+        except Exception as e:
+            logger.error(f"Failed to update task failure in MongoDB: {e}")
 
     async def run(self):
         """
@@ -197,9 +605,15 @@ class Worker:
         self.is_running = True
         logger.info(f"Worker {self.node_id} started")
 
+        # 初始化时加载配置
+        try:
+            settings.load_from_db()
+        except Exception as e:
+            logger.warning(f"Initial settings reload failed: {e}")
+
         # 启动心跳循环
         heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-        
+
         # 启动浏览器空闲检查循环
         idle_check_task = asyncio.create_task(self._browser_idle_check_loop())
 
@@ -210,27 +624,45 @@ class Worker:
             loop = asyncio.get_event_loop()
 
             # 定义消息队列的回调函数
-            def callback(task_data):
+            def callback(task_data, channel, method):
                 asyncio.run_coroutine_threadsafe(
-                    self.process_task(task_data),
+                    self.process_task(task_data, channel, method),
                     loop
                 )
 
-            # 在线程池中运行阻塞式的消息队列消费
-            await loop.run_in_executor(
-                None,
-                lambda: rabbitmq_service.consume_tasks(
-                    callback,
-                    prefetch_count=settings.worker_concurrency,
-                    should_stop=lambda: not self.is_running
-                )
-            )
+            # 在线程池中运行阻塞式的消息队列消费，增加重试机制
+            while self.is_running:
+                logger.info(f"Worker {self.node_id} starting consumer thread...")
+                try:
+                    await loop.run_in_executor(
+                        None,
+                        lambda: rabbitmq_service.consume_tasks(
+                            callback,
+                            prefetch_count=settings.worker_concurrency,
+                            should_stop=lambda: not self.is_running
+                        )
+                    )
+                except Exception as e:
+                    if self.is_running:
+                        logger.error(f"Consumer thread crashed: {e}. Restarting in 5 seconds...")
+                        await asyncio.sleep(5)
+                    else:
+                        break
+
+                # 如果 consume_tasks 正常返回但 worker 仍在运行，说明发生了某种退出
+                if self.is_running:
+                    logger.warning("Consumer thread exited unexpectedly. Restarting...")
+                    await asyncio.sleep(2)
 
         except KeyboardInterrupt:
             logger.info("Worker stopping...")
         finally:
             heartbeat_task.cancel()
             idle_check_task.cancel()
+            try:
+                await asyncio.gather(heartbeat_task, idle_check_task, return_exceptions=True)
+            except:
+                pass
             await self.stop()
 
     async def _browser_idle_check_loop(self):
@@ -240,16 +672,28 @@ class Worker:
         logger.info(f"Browser idle check loop started for {self.node_id}")
         while self.is_running:
             try:
+                # 检查 Playwright 浏览器
                 await browser_manager.check_idle_browser()
+
+                # 检查 DrissionPage 浏览器 (同步方法在线程中运行)
+                await asyncio.to_thread(self._check_drission_idle)
             except Exception as e:
                 logger.error(f"Error checking idle browser: {e}")
-            
+
             # 每 30 秒检查一次
             for _ in range(30):
                 if not self.is_running:
                     break
                 await asyncio.sleep(1)
         logger.info(f"Browser idle check loop stopped for {self.node_id}")
+
+    def _check_drission_idle(self):
+        """检查并清理空闲的 DrissionPage 实例"""
+        try:
+            # 使用 DrissionManager 自带的检查方法
+            drission_manager.check_idle(timeout=settings.browser_idle_timeout)
+        except Exception as e:
+            logger.error(f"Error in _check_drission_idle: {e}")
 
     async def _heartbeat_loop(self):
         """周期性更新节点心跳状态"""
@@ -259,14 +703,15 @@ class Worker:
                 # 检查是否应该退出
                 if not self.is_running:
                     break
-                    
-                mongo.nodes.update_one(
+
+                await asyncio.to_thread(
+                    mongo.nodes.update_one,
                     {"node_id": self.node_id},
                     {"$set": {"last_seen": datetime.now(), "status": "running"}}
                 )
             except Exception as e:
                 logger.error(f"Heartbeat error for {self.node_id}: {e}")
-            
+
             # 分段睡眠，每秒检查一次 is_running 标志
             for _ in range(settings.heartbeat_interval):
                 if not self.is_running:
@@ -281,36 +726,54 @@ class Worker:
         self.is_running = False
         logger.info(f"Worker {self.node_id} stopping...")
 
-        # 处理正在执行的任务
+        # 立即处理正在执行的任务，将其重置为待处理状态，并重新发布到消息队列
         if self.active_tasks:
-            task_ids = list(self.active_tasks)
-            logger.info(f"Worker {self.node_id} has {len(task_ids)} active tasks. Resetting status...")
+            task_items = list(self.active_tasks.items())
+            task_ids = [item[0] for item in task_items]
+            logger.info(f"Worker {self.node_id} has {len(task_ids)} active tasks. Resetting status and republishing...")
             try:
-                mongo.tasks.update_many(
+                # 1. 更新数据库状态为 pending
+                await asyncio.to_thread(
+                    mongo.tasks.update_many,
                     {"task_id": {"$in": task_ids}},
                     {
                         "$set": {
                             "status": "pending",
                             "node_id": None,
-                            "updated_at": datetime.now(),
-                            "error": {"message": "Node stopped during processing"}
+                            "updated_at": datetime.now()
+                        },
+                        "$unset": {
+                            "error": ""
                         }
                     }
                 )
-                logger.info(f"Successfully reset {len(task_ids)} tasks to pending")
-                self.active_tasks.clear()
+
+                # 2. 不再手动发布任务，而是依赖 process_task 的 finally 块中的 NACK 机制自动重新入队
+                # for task_id, task_data in task_items:
+                #    success = rabbitmq_service.publish_task(task_data)
+                #    if success:
+                #        logger.info(f"Task {task_id} successfully republished to RabbitMQ")
+                #    else:
+                #        logger.error(f"Failed to republish task {task_id} to RabbitMQ")
+
+                logger.info(f"Successfully processed {len(task_ids)} tasks for rollback (will be NACKed automatically)")
+                # 不主动清空 active_tasks，由各协程的 finally 块自行清理，
+                # 但由于 is_running 已为 False，后续的数据库更新操作会被跳过
             except Exception as e:
-                logger.error(f"Error resetting active tasks: {e}")
+                logger.error(f"Error during tasks rollback: {e}")
 
         # 关闭本线程的浏览器和 Playwright 实例
         try:
             await browser_manager.close_playwright()
-            logger.info(f"Worker {self.node_id} closed browser and Playwright")
+            # 同时也关闭 DrissionPage 实例
+            await asyncio.to_thread(drission_manager.close_browser)
+            logger.info(f"Worker {self.node_id} closed browser and Playwright/DrissionPage")
         except Exception as e:
             logger.error(f"Error closing browser for {self.node_id}: {e}")
 
         try:
-            mongo.nodes.update_one(
+            await asyncio.to_thread(
+                mongo.nodes.update_one,
                 {"node_id": self.node_id},
                 {"$set": {"status": "stopped"}}
             )

@@ -8,7 +8,11 @@ export const useStatsStore = defineStore('stats', {
       yesterday: { total: 0, success: 0, failed: 0, avg_duration: 0 },
       trends: { total: 0, success: 0, failed: 0, avg_duration: 0 },
       queue: { pending: 0, processing: 0, success: 0, failed: 0 },
-      history: []
+      nodes: { total: 0, active: 0, inactive: 0 },
+      system_load: 0,
+      total_scraped: 0,
+      history: [],
+      today_hourly: []
     },
     loading: false,
     lastUpdated: null,

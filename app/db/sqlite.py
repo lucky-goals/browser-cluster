@@ -13,7 +13,9 @@ class SQLiteDB:
     """SQLite 数据库管理类"""
     
     _instance = None
-    _db_path = "data/configs.db"
+    # 使用绝对路径，确保从任何地方运行都能找到同一个数据库文件
+    _base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    _db_path = os.path.join(_base_dir, "data", "configs.db")
     
     def __new__(cls):
         if cls._instance is None:
@@ -159,6 +161,10 @@ class SQLiteDB:
         conn.close()
         return rows_affected > 0
 
+    def update_user_password(self, user_id: int, password_hash: str) -> bool:
+        """更新用户密码"""
+        return self.update_user(user_id, password_hash=password_hash)
+
     def delete_user(self, user_id: int) -> bool:
         """删除用户"""
         conn = self._get_conn()
@@ -256,10 +262,10 @@ class SQLiteDB:
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute('DELETE FROM configs WHERE key = ?', (key,))
-        rows_affected = cursor.rowcount
+        success = cursor.rowcount > 0
         conn.commit()
         conn.close()
-        return rows_affected > 0
+        return success
 
 # 全局 SQLite 实例
 sqlite_db = SQLiteDB()

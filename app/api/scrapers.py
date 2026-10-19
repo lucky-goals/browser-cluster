@@ -1,0 +1,359 @@
+from typing import List
+import asyncio
+import logging
+from datetime import datetime
+from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Depends
+from app.models.scraper import ScraperCreate, ScraperUpdate, ScraperResponse, ScraperTestRequest, AiRuleGenerationRequest
+from app.db.mongo import mongo
+from app.core.auth import get_current_user
+from app.core.scraper import Scraper
+from app.core.scheduler import scraper_scheduler
+from app.services.scraper_service import execute_scraper_task, create_detail_tasks
+from app.services.task_service import task_service
+from app.services.parser_service import parser_service
+from app.models.task import ScrapeRequest, ScrapeParams
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/v1/scrapers", tags=["Scrapers"])
+
+@router.get("/", response_model=List[ScraperResponse])
+async def get_scrapers(current_user: dict = Depends(get_current_user)):
+    scrapers = list(mongo.db.scrapers.find().sort("created_at", -1))
+    return scrapers
+
+@router.post("/", response_model=ScraperResponse)
+async def create_scraper(scraper: ScraperCreate, current_user: dict = Depends(get_current_user)):
+    doc = scraper.model_dump()
+    # Convert HttpUrl to string for MongoDB compatibility
+    if doc.get("url"):
+        doc["url"] = str(doc["url"])
+        
+    doc["created_at"] = datetime.now()
+    doc["updated_at"] = datetime.now()
+    result = mongo.db.scrapers.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    
+    # 更新调度器状态
+    scraper_scheduler.add_or_update_job(doc)
+        
+    return doc
+
+@router.get("/{scraper_id}", response_model=ScraperResponse)
+async def get_scraper(scraper_id: str, current_user: dict = Depends(get_current_user)):
+    if not ObjectId.is_valid(scraper_id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+    
+    doc = mongo.db.scrapers.find_one({"_id": ObjectId(scraper_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Scraper not found")
+        
+    return doc
+
+@router.put("/{scraper_id}", response_model=ScraperResponse)
+async def update_scraper(scraper_id: str, scraper: ScraperUpdate, current_user: dict = Depends(get_current_user)):
+    if not ObjectId.is_valid(scraper_id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+    
+    update_data = {k: v for k, v in scraper.model_dump(exclude_unset=True).items()}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No data to update")
+    
+    # Convert HttpUrl to string for MongoDB compatibility
+    if update_data.get("url"):
+        update_data["url"] = str(update_data["url"])
+        
+    update_data["updated_at"] = datetime.now()
+    
+    result = mongo.db.scrapers.find_one_and_update(
+        {"_id": ObjectId(scraper_id)},
+        {"$set": update_data},
+        return_document=True
+    )
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Scraper not found")
+    
+    # 更新调度器状态：根据站点是否启用和调度配置自动添加/移除任务
+    scraper_scheduler.add_or_update_job(result)
+        
+    return result
+
+@router.delete("/{scraper_id}")
+async def delete_scraper(scraper_id: str, current_user: dict = Depends(get_current_user)):
+    if not ObjectId.is_valid(scraper_id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+        
+    result = mongo.db.scrapers.delete_one({"_id": ObjectId(scraper_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Scraper not found")
+    
+    # 从调度器中移除
+    scraper_scheduler.remove_job(scraper_id)
+        
+    return {"status": "success"}
+
+@router.post("/ai-generate-rules", response_model=dict)
+async def ai_generate_rules(request: AiRuleGenerationRequest, current_user: dict = Depends(get_current_user)):
+    """使用 AI 生成 XPath 规则"""
+    try:
+        scraper = Scraper()
+        
+        # 1. 使用 DrissionPage 获取 HTML (解决阻塞问题，Scraper 内部已处理)
+        html = await scraper.validate_rules_with_drission(
+            url=str(request.url),
+            wait_for_selector=request.wait_for_selector,
+            wait_time=request.wait_time,
+            timeout=request.timeout // 1000,  # Convert ms to seconds
+            proxy=request.proxy,
+            proxy_pool_group=request.proxy_pool_group
+        )
+        
+        if not html:
+            raise HTTPException(status_code=400, detail="Failed to fetch HTML content")
+            
+        # 2. 调用 LLM 生成规则
+        rules = await parser_service.generate_xpath_rules(html)
+        
+        if "error" in rules:
+             raise HTTPException(status_code=500, detail=rules["error"])
+             
+        return rules
+        
+    except Exception as e:
+        logger.error(f"AI rule generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/test", response_model=dict)
+async def test_scraper(request: ScraperTestRequest, current_user: dict = Depends(get_current_user)):
+    logger.info(f"Received test_scraper request. ScraperID: {request.scraper_id}, Type: {type(request.scraper_id)}, TriggerDetails: {request.trigger_details}")
+    try:
+        # 1. 校验 XPath 语法
+        xpaths_to_check = {
+            "List XPath": request.list_xpath,
+            "Title XPath": request.title_xpath,
+            "Link XPath": request.link_xpath,
+            "Time XPath": request.time_xpath,
+            "Next Page XPath": request.pagination_next_xpath,
+        }
+        
+        for name, xpath in xpaths_to_check.items():
+            if xpath:
+                # 仅记录警告，不再抛出 HTTPException 阻塞执行
+                error = Scraper.validate_xpath(xpath)
+                if error:
+                    logger.warning(f"XPath validation warning for {name}: {error}")
+
+        scraper = Scraper()
+        
+        # 使用统一的 scrape_list 方法
+        result = await scraper.scrape_list(
+            url=str(request.url),
+            list_xpath=request.list_xpath,
+            title_xpath=request.title_xpath,
+            link_xpath=request.link_xpath,
+            time_xpath=request.time_xpath,
+            pagination_next_xpath=request.pagination_next_xpath,
+            params={
+                "engine": request.engine,
+                "wait_for": request.wait_for,
+                "wait_time": request.wait_time,
+                "wait_for_selector": request.wait_for_selector,
+                "wait_timeout": request.wait_timeout,
+                "block_images": request.block_images,
+                "no_css": request.no_css,
+                "stealth": request.stealth,
+                "max_retries": request.max_retries,
+                "proxy": request.proxy,
+                "proxy_pool_group": request.proxy_pool_group,
+                "cookies": request.cookies,
+                "pagination_next_xpath": request.pagination_next_xpath
+            }
+        )
+        
+        if result.get("status") == "failed":
+            raise Exception(result.get("error"))
+
+        # 如果提供了 scraper_id，则保存测试记录 (execution_type='test')
+        if request.scraper_id:
+            if ObjectId.is_valid(request.scraper_id):
+                try:
+                    logger.info(f"Saving test execution for scraper {request.scraper_id}")
+                    execution_doc = {
+                        "scraper_id": ObjectId(request.scraper_id),
+                        "scraper_name": "Manual Test",
+                        "url": str(request.url),
+                        "page_num": 1,
+                        "status": "success",
+                        "error": None,
+                        "html": result.get("html"),
+                        "screenshot": None,
+                        "items_count": result.get("count", 0),
+                        "items": result.get("items", []),
+                        "duration": result.get("duration", 0),
+                        "engine": request.engine,
+                        "created_at": datetime.now(),
+                        "execution_type": "test"  # 标记为测试数据
+                    }
+                    res = mongo.scraper_executions.insert_one(execution_doc)
+                    logger.info(f"Test execution saved successfully with ID: {res.inserted_id}")
+                    
+                    # 如果请求触发详情任务测试
+                    if request.trigger_details and result.get("items"):
+                        scraper_doc = mongo.db.scrapers.find_one({"_id": ObjectId(request.scraper_id)})
+                        if scraper_doc:
+                            # 使用当前请求的 XPath 覆盖 scraper_doc 中的规则进行测试
+                            temp_doc = {
+                                **scraper_doc,
+                                "list_xpath": request.list_xpath,
+                                "title_xpath": request.title_xpath,
+                                "link_xpath": request.link_xpath,
+                                "time_xpath": request.time_xpath,
+                                "pagination_next_xpath": request.pagination_next_xpath
+                            }
+                            # 创建测试类型的详情任务
+                            detail_count = await create_detail_tasks(temp_doc, result.get("items"), execution_type="test")
+                            logger.info(f"Created {detail_count} test detail tasks for scraper {request.scraper_id}")
+                except Exception as e:
+                    logger.error(f"Failed to save test execution or trigger detail tasks: {e}", exc_info=True)
+            else:
+                 logger.warning(f"Skipping test execution save: scraper_id={request.scraper_id} is invalid")
+        else:
+            logger.info("Skipping test execution save: No scraper_id provided (New scraper test)")
+            
+        return {
+            "status": "success",
+            "html": result.get("html"), 
+            "items": result.get("items", [])[:20], # Limit items for preview
+            "count": result.get("count", 0),
+            "triggered_details": request.trigger_details
+        }
+    except Exception as e:
+        logger.error(f"Scraper test failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{scraper_id}/run")
+async def run_scraper(scraper_id: str, type: str = "test", current_user: dict = Depends(get_current_user)):
+    if not ObjectId.is_valid(scraper_id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+        
+    scraper_doc = mongo.db.scrapers.find_one({"_id": ObjectId(scraper_id)})
+    if not scraper_doc:
+        raise HTTPException(status_code=404, detail="Scraper not found")
+        
+    # 检查站点是否启用
+    if not scraper_doc.get("enabled", True):
+        raise HTTPException(status_code=400, detail="该站点已禁用，无法执行采集")
+        
+    # 后台执行采集任务
+    asyncio.create_task(execute_scraper_task(scraper_doc, execution_type=type))
+    
+    return {"status": "success", "message": f"Scraper task ({type}) started in background"}
+
+@router.delete("/{scraper_id}/data")
+async def clear_scraper_executions(
+    scraper_id: str, 
+    type: str = "all",  # all: 全部, test: 仅测试数据, production: 仅正式数据
+    current_user: dict = Depends(get_current_user)
+):
+    """清空站点的所有抓取历史记录（包括执行记录和关联任务）"""
+    if not ObjectId.is_valid(scraper_id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+        
+    query = {"scraper_id": ObjectId(scraper_id)}
+    
+    # 根据 type 过滤删除范围
+    if type == "test":
+        query["execution_type"] = "test"
+    elif type == "production":
+        query["execution_type"] = {"$ne": "test"}
+        
+    # 1. 清除执行记录 (scraper_executions)
+    exec_result = mongo.scraper_executions.delete_many(query)
+    
+    # 2. 清除由此站点触发的详情任务 (tasks)
+    task_deleted_count = 0
+    task_query = {"schedule_id": f"scraper_{scraper_id}"}
+    if type == "test":
+        task_query["execution_type"] = "test"
+    elif type == "production":
+        task_query["execution_type"] = {"$ne": "test"}
+    else:
+        # type="all" 时不需要 execution_type 过滤条件
+        pass
+    
+    task_result = mongo.tasks.delete_many(task_query)
+    task_deleted_count = task_result.deleted_count
+    
+    # 3. 重置站点状态 (仅当清理全部或仅正式数据时)
+    if type in ["all", "production"]:
+        mongo.db.scrapers.update_one(
+            {"_id": ObjectId(scraper_id)},
+            {"$set": {"last_test_status": None, "last_test_error": None}}
+        )
+    
+    return {
+        "status": "success", 
+        "deleted_executions": exec_result.deleted_count,
+        "deleted_tasks": task_deleted_count
+    }
+
+@router.get("/{scraper_id}/data")
+async def get_scraper_executions(
+    scraper_id: str, 
+    page: int = 1, 
+    page_size: int = 50,
+    type: str = "production",  # production (default), test, all
+    current_user: dict = Depends(get_current_user)
+):
+    """获取站点采集的执行记录列表"""
+    if not ObjectId.is_valid(scraper_id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+        
+    skip = (page - 1) * page_size
+    query = {"scraper_id": ObjectId(scraper_id)}
+    
+    # 过滤测试数据
+    if type == "production":
+        query["execution_type"] = {"$ne": "test"}
+    elif type == "test":
+        query["execution_type"] = "test"
+    
+    total = mongo.scraper_executions.count_documents(query)
+    # 列表接口不返回 HTML、截图和完整抓取项，以节省流量
+    items = list(mongo.scraper_executions.find(
+        query, 
+        {"html": 0, "screenshot": 0, "items": 0}
+    ).sort("created_at", -1).skip(skip).limit(page_size))
+    
+    # 转换 ObjectId 为字符串
+    for item in items:
+        item["_id"] = str(item["_id"])
+        item["scraper_id"] = str(item["scraper_id"])
+        
+    return {
+        "total": total,
+        "items": items,
+        "page": page,
+        "page_size": page_size
+    }
+
+@router.get("/executions/{execution_id}")
+async def get_execution_detail(
+    execution_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """获取单次执行的详细信息 (包含 HTML 和 截图)"""
+    if not ObjectId.is_valid(execution_id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+        
+    doc = mongo.scraper_executions.find_one({"_id": ObjectId(execution_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Execution not found")
+        
+    doc["_id"] = str(doc["_id"])
+    doc["scraper_id"] = str(doc["scraper_id"])
+    return doc
+
+# 移除了 execute_scraper_task，已移动到 app.services.scraper_service

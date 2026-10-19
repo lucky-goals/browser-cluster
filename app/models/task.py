@@ -1,181 +1,217 @@
-"""
-任务相关的数据模型
-
-定义任务请求、响应、状态等数据结构
-"""
+"""任务请求、结果和状态模型。"""
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, HttpUrl, Field
+from typing import Any, Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field
+
 from app.models.llm import AgentResult
 
 
+class StorageType(str, Enum):
+    MONGO = "mongo"
+    OSS = "oss"
+
+
 class ProxyConfig(BaseModel):
-    """代理配置模型"""
+    """浏览器代理配置。"""
+
     server: str
     username: Optional[str] = None
     password: Optional[str] = None
 
 
 class InteractionStep(BaseModel):
-    """交互步骤模型"""
-    action: str  # 动作类型：scroll, pagination, zoom, fill, click, wait
-    params: Dict[str, Any] = Field(default_factory=dict)  # 动作参数
+    """浏览器交互或技能步骤。"""
+
+    action: str
+    params: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ScrapeParams(BaseModel):
-    """抓取参数模型"""
+    """抓取参数，同时覆盖 Playwright、DrissionPage 和 Agent 配置。"""
 
-    wait_for: str = "networkidle"  # 等待策略: networkidle, load, domcontentloaded
-    wait_time: int = 3000  # 额外等待时间（毫秒）
-    timeout: int = 30000  # 超时时间（毫秒）
-    selector: Optional[str] = None  # 等待特定选择器（可选）
-    screenshot: bool = False  # 是否截图
-    is_fullscreen: bool = False  # 是否全屏截图
-    block_images: bool = False  # 是否拦截图片
-    block_media: bool = False  # 是否拦截媒体资源
-    user_agent: Optional[str] = None  # 自定义 User-Agent
-    viewport: Dict[str, int] = Field(
-        default_factory=lambda: {"width": 1920, "height": 1080}
-    )  # 视口大小
-    proxy: Optional[ProxyConfig] = None  # 代理配置 {server, username, password}
-    stealth: bool = True  # 是否启用反检测 (stealth)
-    intercept_apis: Optional[List[str]] = None  # 要拦截的接口 URL 模式列表
-    intercept_continue: bool = False  # 拦截接口后是否继续请求 (默认 False)
-    # 交互步骤
-    interaction_steps: Optional[List[InteractionStep]] = None  # 任务执行过程中的交互步骤
-    # Agent 相关配置
-    agent_enabled: bool = False  # 是否启用 Agent 识别
-    agent_model_id: Optional[str] = None  # 使用的 LLM 模型 ID
-    agent_system_prompt: Optional[str] = None  # Agent 系统提示词内容
-    agent_prompt: Optional[str] = None  # Agent 提取要求/用户提示词
-    agent_parallel_enabled: bool = False  # 是否启用并行提取
-    agent_parallel_batch_size: int = 10  # 并行提取的批次大小（块数量）
+    engine: str = "playwright"
+    wait_for: str = "networkidle"
+    wait_time: int = 3000
+    timeout: int = 30000
+    selector: Optional[str] = None
+    screenshot: bool = False
+    is_fullscreen: bool = False
+    block_images: bool = False
+    block_media: bool = False
+    user_agent: Optional[str] = None
+    viewport: Dict[str, int] = Field(default_factory=lambda: {"width": 1920, "height": 1080})
+    proxy: Optional[Union[ProxyConfig, Dict[str, Any]]] = None
+    proxy_pool_group: Optional[str] = None
+    cookies: Optional[Union[str, List[Dict[str, Any]], Dict[str, str]]] = None
+    cookie_group: Optional[str] = None
+    return_cookies: bool = False
+    stealth: bool = True
+    intercept_apis: Optional[List[str]] = None
+    intercept_continue: bool = False
+    save_html: bool = True
+    parser: Optional[str] = None
+    parser_config: Optional[Dict[str, Any]] = None
+    storage_type: StorageType = StorageType.MONGO
+    mongo_collection: Optional[str] = None
+    oss_path: Optional[str] = None
+    max_retries: int = 0
+    matched_rule: Optional[str] = None
+
+    # Session/list scraping options
+    max_pages: int = 1
+    list_xpath: Optional[str] = None
+    title_xpath: Optional[str] = None
+    link_xpath: Optional[str] = None
+    time_xpath: Optional[str] = None
+    pagination_next_xpath: Optional[str] = None
+    no_images: bool = True
+    no_css: bool = True
+
+    # Fork Agent and skill options
+    interaction_steps: Optional[List[InteractionStep]] = None
+    agent_enabled: bool = False
+    agent_model_id: Optional[str] = None
+    agent_system_prompt: Optional[str] = None
+    agent_prompt: Optional[str] = None
+    agent_parallel_enabled: bool = False
+    agent_parallel_batch_size: int = 10
 
 
 class CacheConfig(BaseModel):
-    """缓存配置模型"""
-
-    enabled: bool = True  # 是否启用缓存
-    ttl: int = 3600  # 缓存过期时间（秒）
+    enabled: bool = True
+    ttl: int = 3600
 
 
 class ScrapeRequest(BaseModel):
-    """抓取请求模型"""
-
-    url: HttpUrl  # 目标 URL
-    params: ScrapeParams = Field(default_factory=ScrapeParams)  # 抓取参数
-    cache: CacheConfig = Field(default_factory=CacheConfig)  # 缓存配置
-    priority: int = 1  # 任务优先级（数字越大优先级越高）
+    url: str
+    params: ScrapeParams = Field(default_factory=ScrapeParams)
+    cache: CacheConfig = Field(default_factory=CacheConfig)
+    priority: int = 1
+    schedule_id: Optional[str] = None
+    retry_enabled: Optional[bool] = None
+    max_retries: Optional[int] = None
+    execution_type: str = "production"
 
 
 class TaskMetadata(BaseModel):
-    """任务元数据模型"""
-
-    title: Optional[str] = None  # 页面标题
-    url: str  # 页面请求 URL
-    actual_url: Optional[str] = None  # 实际加载的 URL (处理重定向后)
-    load_time: float  # 加载时间（秒）
-    timestamp: datetime = Field(default_factory=datetime.now)  # 时间戳
+    title: Optional[str] = None
+    url: str
+    actual_url: Optional[str] = None
+    load_time: float
+    timestamp: datetime = Field(default_factory=datetime.now)
+    status_code: Optional[int] = None
+    engine: Optional[str] = None
+    proxy: Optional[str] = None
 
 
 class ScrapedResult(BaseModel):
-    """抓取结果模型"""
-
-    html: str  # 渲染后的 HTML
-    screenshot: Optional[str] = None  # 截图（base64 编码）
-    metadata: TaskMetadata  # 元数据
-    intercepted_apis: Optional[Dict[str, List[Dict[str, Any]]]] = (
-        None  # 拦截到的接口数据
-    )
-    agent_result: Optional[AgentResult] = None  # Agent 识别结果
-    skill_results: Optional[Dict[str, Any]] = None  # 交互技能执行结果
-    visual_content: Optional[str] = None  # 网页视觉块状内容
+    # HTML may be omitted when OSS storage is selected or save_html is false.
+    html: Optional[str] = None
+    screenshot: Optional[str] = None
+    oss_html: Optional[str] = None
+    oss_screenshot: Optional[str] = None
+    storage_type: str = "mongo"
+    metadata: Optional[TaskMetadata] = None
+    cookies: Optional[Union[str, Dict[str, str], List[Dict[str, Any]]]] = None
+    intercepted_apis: Optional[Dict[str, List[Dict[str, Any]]]] = None
+    parsed_data: Optional[Union[Dict[str, Any], List[Any]]] = None
+    agent_result: Optional[AgentResult] = None
+    skill_results: Optional[Dict[str, Any]] = None
+    visual_content: Optional[str] = None
+    html_cached: bool = False
+    agent_cached: bool = False
 
 
 class TaskError(BaseModel):
-    """任务错误模型"""
-
-    message: str  # 错误信息
-    stack: Optional[str] = None  # 错误堆栈
+    message: str
+    stack: Optional[str] = None
+    type: Optional[str] = None
 
 
 class TaskStatus(str, Enum):
-    """任务状态枚举"""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    SUCCESS = "success"
+    FAILED = "failed"
 
-    PENDING = "pending"  # 等待中
-    PROCESSING = "processing"  # 处理中
-    SUCCESS = "success"  # 成功
-    FAILED = "failed"  # 失败
+
+class RetryRequest(BaseModel):
+    url: Optional[str] = None
+    params: Optional[Dict[str, Any]] = None
+    priority: Optional[int] = None
+    cache: Optional[Dict[str, Any]] = None
 
 
 class TaskModel(BaseModel):
-    """任务数据模型"""
-
-    task_id: Optional[str] = None  # 任务 ID
-    url: str  # 目标 URL
-    status: TaskStatus = TaskStatus.PENDING  # 任务状态
-    priority: int = 1  # 优先级
-    params: Dict[str, Any] = Field(default_factory=dict)  # 抓取参数
-    result: Optional[ScrapedResult] = None  # 抓取结果
-    error: Optional[TaskError] = None  # 错误信息
-    cache_key: Optional[str] = None  # 缓存键
-    cached: bool = False  # 是否命中缓存 (总开关/全量)
-    html_cached: bool = False  # 是否命中网页抓取缓存
-    agent_cached: bool = False  # 是否命中 AI 识别缓存
-    node_id: Optional[str] = None  # 处理节点 ID
-    created_at: datetime = Field(default_factory=datetime.now)  # 创建时间
-    updated_at: datetime = Field(default_factory=datetime.now)  # 更新时间
-    completed_at: Optional[datetime] = None  # 完成时间
+    task_id: Optional[str] = None
+    url: str
+    status: TaskStatus = TaskStatus.PENDING
+    priority: int = 1
+    params: Dict[str, Any] = Field(default_factory=dict)
+    result: Optional[ScrapedResult] = None
+    error: Optional[TaskError] = None
+    cache_key: Optional[str] = None
+    cached: bool = False
+    html_cached: bool = False
+    agent_cached: bool = False
+    node_id: Optional[str] = None
+    retry_count: int = 0
+    retry_enabled: bool = True
+    max_retries: int = 3
+    execution_type: str = "production"
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    completed_at: Optional[datetime] = None
 
 
 class TaskResponse(BaseModel):
-    """任务响应模型"""
-
-    task_id: str  # 任务 ID
-    url: str  # 目标 URL
-    node_id: Optional[str] = None  # 处理节点 ID
-    status: str  # 任务状态
-    params: Optional[Dict[str, Any]] = None  # 任务参数
-    result: Optional[ScrapedResult] = None  # 抓取结果
-    error: Optional[TaskError] = None  # 错误信息
-    cached: bool = False  # 是否来自缓存
-    html_cached: bool = False  # 是否命中网页抓取缓存
-    agent_cached: bool = False  # 是否命中 AI 识别缓存
-    created_at: datetime  # 创建时间
-    updated_at: datetime  # 更新时间
-    completed_at: Optional[datetime] = None  # 完成时间
+    task_id: str
+    url: str
+    node_id: Optional[str] = None
+    status: str
+    retry_count: int = 0
+    retry_enabled: bool = True
+    max_retries: int = 3
+    execution_type: str = "production"
+    params: Optional[Dict[str, Any]] = None
+    priority: Optional[int] = 1
+    cache: Optional[Dict[str, Any]] = None
+    result: Optional[ScrapedResult] = None
+    error: Optional[TaskError] = None
+    cached: bool = False
+    html_cached: bool = False
+    agent_cached: bool = False
+    created_at: datetime
+    updated_at: datetime
+    completed_at: Optional[datetime] = None
 
 
 class BatchScrapeRequest(BaseModel):
-    """批量抓取请求模型"""
-
-    tasks: List[ScrapeRequest]  # 任务列表
+    tasks: List[ScrapeRequest]
 
 
 class BatchScrapeResponse(BaseModel):
-    """批量抓取响应模型"""
-
-    task_ids: List[str]  # 任务 ID 列表
+    task_ids: List[str]
 
 
 class BatchDeleteRequest(BaseModel):
-    """批量删除请求模型"""
-
-    task_ids: List[str]  # 要删除的任务 ID 列表
+    task_ids: List[str]
 
 
 class ProxyTestRequest(BaseModel):
-    """代理测试请求模型"""
     proxy: ProxyConfig
 
 
 class StatsResponse(BaseModel):
-    """统计响应模型"""
-
-    today: Dict[str, Any]  # 今日统计数据
-    yesterday: Dict[str, Any]  # 昨日统计数据
-    trends: Dict[str, float]  # 趋势百分比
-    queue: Dict[str, Any]  # 队列统计数据
-    history: List[Dict[str, Any]]  # 历史趋势数据
+    today: Dict[str, Any]
+    yesterday: Dict[str, Any]
+    trends: Dict[str, float]
+    queue: Dict[str, Any]
+    history: List[Dict[str, Any]]
+    today_hourly: Optional[List[Dict[str, Any]]] = None
+    nodes: Optional[Dict[str, Any]] = None
+    system_load: Optional[float] = 0.0
+    total_scraped: Optional[int] = 0

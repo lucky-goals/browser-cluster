@@ -1,33 +1,51 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
 import Tasks from '../views/Tasks.vue'
+import TaskRecords from '../views/TaskRecords.vue'
+import Schedules from '../views/Schedules.vue'
 import Stats from '../views/Stats.vue'
 import Configs from '../views/Configs.vue'
+import Rules from '../views/Rules.vue'
+import Scrapers from '../views/Scrapers.vue'
+import Proxies from '../views/Proxies.vue'
+import LegacyProxies from '../views/LegacyProxies.vue'
+import Cookies from '../views/Cookies.vue'
 import Nodes from '../views/Nodes.vue'
 import Login from '../views/Login.vue'
 import Users from '../views/Users.vue'
 import LLMModels from '../views/LLMModels.vue'
 import PromptTemplates from '../views/PromptTemplates.vue'
-import Proxies from '../views/Proxies.vue'
 import Skills from '../views/Skills.vue'
 import SkillBundles from '../views/SkillBundles.vue'
 import Profile from '../views/Profile.vue'
+import Workflows from '../views/Workflows.vue'
+import WorkflowEditor from '../views/WorkflowEditor.vue'
+import WorkflowResults from '../views/WorkflowResults.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
-  { path: '/login', component: Login, meta: { public: true } },
-  { path: '/', component: Home },
-  { path: '/tasks', component: Tasks },
-  { path: '/stats', component: Stats },
-  { path: '/proxies', component: Proxies },
-  { path: '/configs', component: Configs, meta: { adminOnly: true } },
-  { path: '/nodes', component: Nodes, meta: { adminOnly: true } },
-  { path: '/users', component: Users, meta: { adminOnly: true } },
-  { path: '/llm-models', component: LLMModels, meta: { adminOnly: true } },
-  { path: '/prompt-templates', component: PromptTemplates },
-  { path: '/skills', component: Skills },
-  { path: '/skill-bundles', component: SkillBundles },
-  { path: '/profile', component: Profile }
+  { path: '/login', component: Login, meta: { public: true, title: '登录' } },
+  { path: '/', component: Home, meta: { title: '首页概览' } },
+  { path: '/tasks', component: Tasks, meta: { title: '任务管理' } },
+  { path: '/task-records', component: TaskRecords, name: 'TaskRecords', meta: { title: '采集记录' } },
+  { path: '/schedules', component: Schedules, meta: { title: '定时任务' } },
+  { path: '/stats', component: Stats, meta: { title: '数据统计' } },
+  { path: '/configs', component: Configs, meta: { adminOnly: true, title: '系统设置' } },
+  { path: '/rules', component: Rules, meta: { adminOnly: true, title: '网站配置' } },
+  { path: '/scrapers', component: Scrapers, meta: { adminOnly: true, title: '站点采集' } },
+  { path: '/proxies', component: Proxies, meta: { adminOnly: true, title: '代理池管理' } },
+  { path: '/legacy-proxies', component: LegacyProxies, meta: { adminOnly: true, title: '代理配置' } },
+  { path: '/cookies', component: Cookies, meta: { adminOnly: true, title: 'Cookie 池' } },
+  { path: '/nodes', component: Nodes, meta: { adminOnly: true, title: '节点管理' } },
+  { path: '/users', component: Users, meta: { adminOnly: true, title: '用户管理' } },
+  { path: '/llm-models', component: LLMModels, meta: { adminOnly: true, title: 'LLM 模型' } },
+  { path: '/prompt-templates', component: PromptTemplates, meta: { title: '提示词模板' } },
+  { path: '/skills', component: Skills, meta: { title: '技能管理' } },
+  { path: '/skill-bundles', component: SkillBundles, meta: { title: '技能包管理' } },
+  { path: '/profile', component: Profile, meta: { title: '个人资料' } },
+  { path: '/workflows', component: Workflows, meta: { adminOnly: true, title: '流程编排' } },
+  { path: '/workflows/edit/:id?', name: 'WorkflowEditor', component: WorkflowEditor, meta: { adminOnly: true, title: '流程编辑' } },
+  { path: '/workflows/results/:id', name: 'WorkflowResults', component: WorkflowResults, meta: { adminOnly: true, title: '执行数据' } }
 ]
 
 const router = createRouter({

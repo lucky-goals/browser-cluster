@@ -1,0 +1,234 @@
+"""
+定时任务调度服务
+
+使用 APScheduler 管理定时任务，根据配置的调度策略自动触发抓取任务
+"""
+import logging
+import uuid
+import asyncio
+from datetime import datetime
+from typing import List, Optional
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.date import DateTrigger
+from app.db.mongo import mongo
+from app.models.schedule import ScheduleModel, ScheduleStatus, ScheduleType
+from app.services.task_service import task_service
+from app.services.proxy_service import proxy_service
+from app.services.cookie_service import cookie_service
+from app.models.task import ScrapeRequest
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+class SchedulerService:
+    """定时任务调度器"""
+    
+    def __init__(self):
+        self.scheduler = AsyncIOScheduler()
+        self.is_running = False
+
+    def start(self):
+        """启动调度器"""
+        if not self.is_running:
+            self.scheduler.start()
+            self.is_running = True
+            logger.info("Scheduler service started")
+            # 添加系统预设任务
+            self._add_system_jobs()
+            # 从数据库加载所有激活的任务
+            self._load_all_jobs()
+
+    def _add_system_jobs(self):
+        """添加系统预设任务，如代理池检测、Cookie池检测"""
+        # 1. 代理检测任务
+        if settings.proxy_enable_check:
+            interval = settings.proxy_check_interval
+            self.scheduler.add_job(
+                proxy_service.check_all_proxies,
+                trigger=IntervalTrigger(seconds=interval),
+                id="system_proxy_check",
+                name="System Proxy Check",
+                replace_existing=True,
+                next_run_time=datetime.now() # 启动时立即执行一次
+            )
+            logger.info(f"Added system job: proxy check (every {interval}s, next run: now)")
+        else:
+            if self.scheduler.get_job("system_proxy_check"):
+                self.scheduler.remove_job("system_proxy_check")
+                logger.info("Removed system job: proxy check (disabled in settings)")
+
+        # 2. Cookie 检测任务
+        if settings.cookie_enable_check:
+            interval = settings.cookie_check_interval
+            self.scheduler.add_job(
+                cookie_service.check_all_cookies,
+                trigger=IntervalTrigger(seconds=interval),
+                id="system_cookie_check",
+                name="System Cookie Check",
+                replace_existing=True,
+                next_run_time=datetime.now() # 启动时立即执行一次
+            )
+            logger.info(f"Added system job: cookie check (every {interval}s, next run: now)")
+        else:
+            if self.scheduler.get_job("system_cookie_check"):
+                self.scheduler.remove_job("system_cookie_check")
+                logger.info("Removed system job: cookie check (disabled in settings)")
+
+    def refresh_system_jobs(self):
+        """刷新系统预设任务"""
+        if self.is_running:
+            self._add_system_jobs()
+
+    def stop(self):
+        """停止调度器"""
+        if self.is_running:
+            self.scheduler.shutdown()
+            self.is_running = False
+            logger.info("Scheduler service stopped")
+
+    def _load_all_jobs(self):
+        """从数据库加载所有激活的定时任务并添加到调度器"""
+        try:
+            # 获取所有未删除且状态为激活的任务
+            # 显式使用 .value 确保查询字符串匹配
+            cursor = mongo.schedules.find({
+                "status": ScheduleStatus.ACTIVE.value, 
+                "is_deleted": {"$ne": True}
+            })
+            schedules = list(cursor)
+            for doc in schedules:
+                self.add_job(ScheduleModel(**doc))
+            logger.info(f"Loaded {len(schedules)} scheduled jobs from database")
+        except Exception as e:
+            logger.error(f"Failed to load scheduled jobs: {e}")
+
+    async def _run_job(self, schedule_id: str, manual: bool = False):
+        """执行定时任务：创建一个真实的抓取任务"""
+        try:
+            # 获取最新的调度配置
+            doc = await asyncio.to_thread(mongo.schedules.find_one, {"schedule_id": schedule_id})
+            if not doc:
+                logger.warning(f"Schedule {schedule_id} not found, skipping execution")
+                return
+            
+            # 如果不是手动触发，且状态不是激活，则跳过
+            if not manual and doc.get("status") != ScheduleStatus.ACTIVE:
+                logger.warning(f"Schedule {schedule_id} is inactive, skipping scheduled execution")
+                return
+
+            schedule = ScheduleModel(**doc)
+            
+            # 构造抓取请求
+            request = ScrapeRequest(
+                url=schedule.url,
+                params=schedule.params,
+                cache=schedule.cache,
+                priority=schedule.priority,
+                schedule_id=schedule_id,
+                retry_enabled=schedule.retry_enabled,
+                max_retries=schedule.max_retries
+            )
+            
+            # 调用任务服务创建异步任务
+            await task_service.create_task(request)
+            
+            # 更新最近运行时间
+            update_data = {"last_run": datetime.now()}
+            
+            # 如果是单次执行任务，执行后将其状态设为已完成
+            if doc.get("schedule_type") == ScheduleType.ONCE:
+                update_data["status"] = ScheduleStatus.PAUSED # 或者定义一个 COMPLETED 状态
+                logger.info(f"One-time job {schedule_id} completed, setting status to PAUSED")
+                
+            await asyncio.to_thread(
+                mongo.schedules.update_one,
+                {"schedule_id": schedule_id},
+                {"$set": update_data}
+            )
+            
+            # 如果是单次执行任务，从调度器中移除自己
+            if doc.get("schedule_type") == ScheduleType.ONCE:
+                self.remove_job(schedule_id)
+                
+            logger.info(f"Scheduled job {schedule.name} ({schedule_id}) executed successfully")
+            
+        except Exception as e:
+            logger.error(f"Error executing scheduled job {schedule_id}: {e}", exc_info=True)
+
+    def add_job(self, schedule: ScheduleModel):
+        """添加任务到调度器"""
+        try:
+            # 如果已存在同 ID 的任务，先删除
+            if self.scheduler.get_job(schedule.schedule_id):
+                self.scheduler.remove_job(schedule.schedule_id)
+
+            trigger = None
+            if schedule.schedule_type == ScheduleType.INTERVAL:
+                trigger = IntervalTrigger(seconds=schedule.interval)
+            elif schedule.schedule_type == ScheduleType.CRON:
+                trigger = CronTrigger.from_crontab(schedule.cron)
+            elif schedule.schedule_type == ScheduleType.ONCE:
+                if schedule.once_time:
+                    # 如果是一次性任务，且时间已过，不应添加到调度器
+                    if schedule.once_time < datetime.now():
+                        logger.warning(f"One-time job {schedule.schedule_id} scheduled time {schedule.once_time} is in the past, skipping")
+                        # 自动更新数据库状态
+                        mongo.schedules.update_one(
+                            {"schedule_id": schedule.schedule_id},
+                            {"$set": {"status": ScheduleStatus.PAUSED}}
+                        )
+                        return
+                    trigger = DateTrigger(run_date=schedule.once_time)
+                else:
+                    logger.warning(f"Schedule {schedule.schedule_id} is 'once' but once_time is missing")
+
+            if trigger:
+                self.scheduler.add_job(
+                    self._run_job,
+                    trigger=trigger,
+                    args=[schedule.schedule_id],
+                    id=schedule.schedule_id,
+                    name=schedule.name,
+                    replace_existing=True,
+                    misfire_grace_time=60 # 超过 1 分钟则不再补偿执行
+                )
+                logger.info(f"Added job to scheduler: {schedule.name} ({schedule_id=})")
+        except Exception as e:
+            logger.error(f"Failed to add job {schedule.schedule_id} to scheduler: {e}")
+
+    def remove_job(self, schedule_id: str):
+        """从调度器移除任务"""
+        try:
+            if self.scheduler.get_job(schedule_id):
+                self.scheduler.remove_job(schedule_id)
+                logger.info(f"Removed job from scheduler: {schedule_id}")
+        except Exception as e:
+            logger.error(f"Failed to remove job {schedule_id} from scheduler: {e}")
+
+    def pause_job(self, schedule_id: str):
+        """暂停任务"""
+        try:
+            if self.scheduler.get_job(schedule_id):
+                self.scheduler.pause_job(schedule_id)
+                logger.info(f"Paused job in scheduler: {schedule_id}")
+        except Exception as e:
+            logger.error(f"Failed to pause job {schedule_id}: {e}")
+
+    def resume_job(self, schedule_id: str):
+        """恢复任务"""
+        try:
+            if self.scheduler.get_job(schedule_id):
+                self.scheduler.resume_job(schedule_id)
+                logger.info(f"Resumed job in scheduler: {schedule_id}")
+            else:
+                # 如果调度器中没有，可能是之前被暂停后状态变更，重新加载
+                doc = mongo.db.schedules.find_one({"schedule_id": schedule_id})
+                if doc:
+                    self.add_job(ScheduleModel(**doc))
+        except Exception as e:
+            logger.error(f"Failed to resume job {schedule_id}: {e}")
+
+# 全局单例
+scheduler_service = SchedulerService()

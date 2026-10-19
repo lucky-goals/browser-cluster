@@ -93,8 +93,8 @@ export const testProxy = async (data) => {
   return response.data
 }
 
-export const getTask = async (taskId) => {
-  const response = await api.get(`/tasks/${taskId}`)
+export const getTask = async (taskId, params = {}) => {
+  const response = await api.get(`/tasks/${taskId}`, { params })
   return response.data
 }
 
@@ -108,19 +108,87 @@ export const deleteTask = async (taskId) => {
   return response.data
 }
 
+// Rules API
+export const getRules = async (params = {}) => {
+  const response = await api.get('/rules/', { params })
+  return response.data
+}
+
+export const getRulesByDomain = async (domain) => {
+  const response = await api.get(`/rules/domain/${domain}`)
+  return response.data
+}
+
+export const createRule = async (data) => {
+  const response = await api.post('/rules/', data)
+  return response.data
+}
+
+export const updateRule = async (ruleId, data) => {
+  const response = await api.put(`/rules/${ruleId}`, data)
+  return response.data
+}
+
+export const deleteRule = async (ruleId) => {
+  const response = await api.delete(`/rules/${ruleId}`)
+  return response.data
+}
+
 export const deleteTasksBatch = async (taskIds) => {
   const response = await api.delete('/tasks/batch', { data: { task_ids: taskIds } })
   return response.data
 }
 
-export const retryTask = async (taskId, agentModelId, agentParallelEnabled = null, agentParallelBatchSize = null) => {
-  const response = await api.post(`/tasks/${taskId}/retry`, null, {
-    params: {
-      agent_model_id: agentModelId,
-      agent_parallel_enabled: agentParallelEnabled,
-      agent_parallel_batch_size: agentParallelBatchSize
+export const retryTask = async (taskId, data = null, agentParallelEnabled = null, agentParallelBatchSize = null) => {
+  let payload = data
+  let requestConfig
+  if (typeof data === 'string' || typeof data === 'number') {
+    payload = null
+    requestConfig = {
+      params: {
+        agent_model_id: data,
+        agent_parallel_enabled: agentParallelEnabled,
+        agent_parallel_batch_size: agentParallelBatchSize
+      }
     }
-  })
+  }
+  const response = await api.post(`/tasks/${taskId}/retry`, payload, requestConfig)
+  return response.data
+}
+
+// 定时任务相关 API
+export const getSchedules = async (params) => {
+  const response = await api.get('/schedules/', { params })
+  return response.data
+}
+
+export const getSchedule = async (scheduleId) => {
+  const response = await api.get(`/schedules/${scheduleId}`)
+  return response.data
+}
+
+export const createSchedule = async (data) => {
+  const response = await api.post('/schedules/', data)
+  return response.data
+}
+
+export const updateSchedule = async (scheduleId, data) => {
+  const response = await api.put(`/schedules/${scheduleId}`, data)
+  return response.data
+}
+
+export const deleteSchedule = async (scheduleId) => {
+  const response = await api.delete(`/schedules/${scheduleId}`)
+  return response.data
+}
+
+export const toggleSchedule = async (scheduleId) => {
+  const response = await api.post(`/schedules/${scheduleId}/toggle`)
+  return response.data
+}
+
+export const runScheduleNow = async (scheduleId) => {
+  const response = await api.post(`/schedules/${scheduleId}/run`)
   return response.data
 }
 
@@ -154,8 +222,168 @@ export const updateConfig = async (key, data) => {
   return response.data
 }
 
+// Proxy API
+export const getProxies = async (params) => {
+  const response = await api.get('/proxy/', { params })
+  return response.data
+}
+
+export const getProxyStats = async () => {
+  const response = await api.get('/proxy/stats')
+  return response.data
+}
+
+export const createProxy = async (data) => {
+  const response = await api.post('/proxy/', data)
+  return response.data
+}
+
+export const updateProxy = async (proxyId, data) => {
+  const response = await api.put(`/proxy/${proxyId}`, data)
+  return response.data
+}
+
+export const deleteProxy = async (proxyId) => {
+  const response = await api.delete(`/proxy/${proxyId}`)
+  return response.data
+}
+
+export const batchDeleteProxies = async (proxyIds) => {
+  const response = await api.post('/proxy/batch-delete', proxyIds)
+  return response.data
+}
+
+export const importProxies = async (data) => {
+  const response = await api.post('/proxy/import', data)
+  return response.data
+}
+
+export const checkAllProxies = async () => {
+  const response = await api.post('/proxy/check-all')
+  return response.data
+}
+
+export const checkProxy = async (proxyId) => {
+  const response = await api.post(`/proxy/${proxyId}/check`)
+  return response.data
+}
+
+export const exportProxies = async () => {
+  const response = await api.get('/proxy/export-all')
+  return response.data
+}
+
+export const getRandomProxy = async (group = 'default') => {
+  const response = await api.get('/proxy/random', { params: { group } })
+  return response.data
+}
+
+export const getProxyConfig = async () => {
+  const response = await api.get('/proxy/config')
+  return response.data
+}
+
+export const updateProxyConfig = async (data) => {
+  const response = await api.put('/proxy/config', data)
+  return response.data
+}
+
+export const exportConfigs = async () => {
+  const response = await api.get('/configs/export', { responseType: 'blob' })
+  return response
+}
+
 export const deleteConfig = async (key) => {
   const response = await api.delete(`/configs/${key}`)
+  return response.data
+}
+
+// Legacy proxy configuration API. The fork's proxy records use a different
+// schema and endpoint from the upstream proxy pool, so keep these helpers
+// namespaced for the legacy admin page.
+export const getLegacyProxies = async (params) => {
+  const response = await api.get('/proxies', { params })
+  return response.data
+}
+
+export const createLegacyProxy = async (data) => {
+  const response = await api.post('/proxies', data)
+  return response.data
+}
+
+export const updateLegacyProxy = async (proxyId, data) => {
+  const response = await api.put(`/proxies/${proxyId}`, data)
+  return response.data
+}
+
+export const deleteLegacyProxy = async (proxyId) => {
+  const response = await api.delete(`/proxies/${proxyId}`)
+  return response.data
+}
+
+export const testLegacyProxy = async (proxyId) => {
+  const response = await api.post(`/proxies/${proxyId}/test`)
+  return response.data
+}
+
+// Cookie API
+export const getCookies = async (params) => {
+  const response = await api.get('/cookies/', { params })
+  return response.data
+}
+
+export const getCookieStats = async () => {
+  const response = await api.get('/cookies/stats')
+  return response.data
+}
+
+export const createCookie = async (data) => {
+  const response = await api.post('/cookies/', data)
+  return response.data
+}
+
+export const updateCookie = async (cookieId, data) => {
+  const response = await api.put(`/cookies/${cookieId}`, data)
+  return response.data
+}
+
+export const deleteCookie = async (cookieId) => {
+  const response = await api.delete(`/cookies/${cookieId}`)
+  return response.data
+}
+
+export const batchDeleteCookies = async (cookieIds) => {
+  const response = await api.post('/cookies/batch-delete', cookieIds)
+  return response.data
+}
+
+export const importCookies = async (data) => {
+  const response = await api.post('/cookies/import', data)
+  return response.data
+}
+
+export const checkAllCookies = async () => {
+  const response = await api.post('/cookies/check-all')
+  return response.data
+}
+
+export const checkCookie = async (cookieId) => {
+  const response = await api.post(`/cookies/${cookieId}/check`)
+  return response.data
+}
+
+export const exportCookies = async () => {
+  const response = await api.get('/cookies/export-all')
+  return response.data
+}
+
+export const getCookieConfig = async () => {
+  const response = await api.get('/cookies/config')
+  return response.data
+}
+
+export const updateCookieConfig = async (data) => {
+  const response = await api.put('/cookies/config', data)
   return response.data
 }
 
@@ -251,32 +479,6 @@ export const deletePromptTemplate = async (templateId) => {
   return response.data
 }
 
-// Proxies API
-export const getProxies = async (params) => {
-  const response = await api.get('/proxies', { params })
-  return response.data
-}
-
-export const createProxy = async (data) => {
-  const response = await api.post('/proxies', data)
-  return response.data
-}
-
-export const updateProxy = async (proxyId, data) => {
-  const response = await api.put(`/proxies/${proxyId}`, data)
-  return response.data
-}
-
-export const deleteProxy = async (proxyId) => {
-  const response = await api.delete(`/proxies/${proxyId}`)
-  return response.data
-}
-
-export const testStoredProxy = async (proxyId) => {
-  const response = await api.post(`/proxies/${proxyId}/test`)
-  return response.data
-}
-
 // Skills API
 export const getSkills = async (params) => {
   const response = await api.get('/skills/', { params })
@@ -349,9 +551,124 @@ export const restoreBackup = async (file) => {
   const formData = new FormData()
   formData.append('file', file)
   const response = await api.post('/system/restore', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
+    headers: { 'Content-Type': 'multipart/form-data' }
   })
+  return response.data
+}
+
+// Scrapers API
+export const getScrapers = async () => {
+  const response = await api.get('/scrapers/')
+  return response.data
+}
+
+export const getScraper = async (id) => {
+  const response = await api.get(`/scrapers/${id}`)
+  return response.data
+}
+
+export const createScraper = async (data) => {
+  const response = await api.post('/scrapers/', data)
+  return response.data
+}
+
+export const updateScraper = async (id, data) => {
+  const response = await api.put(`/scrapers/${id}`, data)
+  return response.data
+}
+
+export const deleteScraper = async (id) => {
+  const response = await api.delete(`/scrapers/${id}`)
+  return response.data
+}
+
+export const clearScraperExecutions = async (id, type = 'all') => {
+  const response = await api.delete(`/scrapers/${id}/data`, { params: { type } })
+  return response.data
+}
+
+export const testScraper = async (data) => {
+  const response = await api.post('/scrapers/test', data, { timeout: 120000 })
+  return response.data
+}
+
+export const aiGenerateRules = async (data) => {
+  const response = await api.post('/scrapers/ai-generate-rules', data, { timeout: 120000 })
+  return response.data
+}
+
+export const runScraper = async (id, type = 'test') => {
+  const response = await api.post(`/scrapers/${id}/run`, null, { params: { type } })
+  return response.data
+}
+
+export const getScraperData = async (id, params) => {
+  const response = await api.get(`/scrapers/${id}/data`, { params })
+  return response.data
+}
+
+export const getScraperExecution = async (id) => {
+  const response = await api.get(`/scrapers/executions/${id}`)
+  return response.data
+}
+
+// Workflows API
+export const getWorkflows = async (params) => {
+  const response = await api.get('/workflows/', { params })
+  return response.data
+}
+
+export const getWorkflow = async (id) => {
+  const response = await api.get(`/workflows/${id}`)
+  return response.data
+}
+
+export const createWorkflow = async (data) => {
+  const response = await api.post('/workflows/', data)
+  return response.data
+}
+
+export const updateWorkflow = async (id, data) => {
+  const response = await api.put(`/workflows/${id}`, data)
+  return response.data
+}
+
+export const deleteWorkflow = async (id) => {
+  const response = await api.delete(`/workflows/${id}`)
+  return response.data
+}
+
+export const batchDeleteWorkflows = async (ids) => {
+  const response = await api.post('/workflows/batch-delete', ids)
+  return response.data
+}
+
+export const executeWorkflow = async (id, mode = 'prod') => {
+  const response = await api.post(`/workflows/${id}/execute`, null, { params: { mode } })
+  return response.data
+}
+
+export const getExecutionStatus = async (executionId) => {
+  const response = await api.get(`/workflows/executions/${executionId}/status`)
+  return response.data
+}
+
+export const getActiveExecutions = async () => {
+  const response = await api.get('/workflows/executions/active')
+  return response.data
+}
+
+export const getWorkflowExecutions = async (id, params) => {
+  const response = await api.get(`/workflows/${id}/executions`, { params })
+  return response.data
+}
+
+export const getWorkflowLogs = async (id, mode) => {
+  const response = await api.get(`/workflows/${id}/logs`, { params: { mode } })
+  return response.data
+}
+
+export const clearWorkflowTestData = async (id) => {
+  const response = await api.delete(`/workflows/${id}/test-data`)
   return response.data
 }

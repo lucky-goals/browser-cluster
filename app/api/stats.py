@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from app.models.task import StatsResponse
 from app.db.mongo import mongo
 from app.core.auth import get_current_user
+from app.services.node_manager import node_manager
 
 router = APIRouter(prefix="/api/v1/stats", tags=["Stats"])
 
@@ -30,7 +31,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
     pipeline_today = [
         {
             "$match": {
-                "created_at": {"$gte": today_start, "$lt": tomorrow_start}
+                "created_at": {"$gte": today_start, "$lt": tomorrow_start},
+                "execution_type": {"$ne": "test"}
             }
         },
         {
@@ -50,7 +52,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
     pipeline_yesterday = [
         {
             "$match": {
-                "created_at": {"$gte": yesterday_start, "$lt": today_start}
+                "created_at": {"$gte": yesterday_start, "$lt": today_start},
+                "execution_type": {"$ne": "test"}
             }
         },
         {
@@ -97,19 +100,20 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
         "avg_duration": calculate_trend(today_stats["avg_duration"], yesterday_stats["avg_duration"])
     }
 
-    # 3. 统计各状态任务数量 (实时队列)
+    # 3. 统计各状态任务数量 (实时队列 - success/failed 仅统计正式采集)
     queue_stats = {
         "pending": mongo.tasks.count_documents({"status": "pending"}),
         "processing": mongo.tasks.count_documents({"status": "processing"}),
-        "success": mongo.tasks.count_documents({"status": "success"}),
-        "failed": mongo.tasks.count_documents({"status": "failed"})
+        "success": mongo.tasks.count_documents({"status": "success", "execution_type": {"$ne": "test"}}),
+        "failed": mongo.tasks.count_documents({"status": "failed", "execution_type": {"$ne": "test"}})
     }
 
     # 4. 获取历史统计 (最近 7 天，用于图表)
     history_pipeline = [
         {
             "$match": {
-                "created_at": {"$gte": now - timedelta(days=7)}
+                "created_at": {"$gte": today_start - timedelta(days=6)},
+                "execution_type": {"$ne": "test"}
             }
         },
         {
@@ -124,10 +128,58 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
     ]
     history_data = list(mongo.tasks.aggregate(history_pipeline))
 
+    # 4.1 获取今日分时统计 (24 小时)
+    today_hourly_pipeline = [
+        {
+            "$match": {
+                "created_at": {"$gte": today_start, "$lt": tomorrow_start},
+                "execution_type": {"$ne": "test"}
+            }
+        },
+        {
+            "$group": {
+                "_id": {"$dateToString": {"format": "%H:00", "date": "$created_at"}},
+                "total": {"$sum": 1},
+                "success": {"$sum": {"$cond": [{"$eq": ["$status", "success"]}, 1, 0]}},
+                "failed": {"$sum": {"$cond": [{"$eq": ["$status", "failed"]}, 1, 0]}}
+            }
+        },
+        {"$sort": {"_id": 1}}
+    ]
+    today_hourly_data = list(mongo.tasks.aggregate(today_hourly_pipeline))
+
+    # 5. 获取节点统计
+    all_nodes = await node_manager.get_all_nodes()
+    active_nodes = [n for n in all_nodes if n.get('status') == 'running']
+    
+    nodes_stats = {
+        "total": len(all_nodes),
+        "active": len(active_nodes),
+        "inactive": len(all_nodes) - len(active_nodes)
+    }
+
+    # 6. 计算系统负载 (基于活跃节点的并发占用情况)
+    system_load = 0.0
+    if active_nodes:
+        total_max_concurrent = sum(n.get('max_concurrent', 1) for n in active_nodes)
+        if total_max_concurrent > 0:
+            # 当前正在处理的任务数
+            processing_count = queue_stats["processing"]
+            system_load = round((processing_count / total_max_concurrent) * 100, 1)
+            # 负载不应超过 100% (理论上可能，但这里做个限制显示)
+            system_load = min(system_load, 100.0)
+
+    # 7. 获取历史总抓取量 (汇总 tasks 集合中的抓取成功任务数)
+    total_scraped = mongo.tasks.count_documents({"status": "success", "execution_type": {"$ne": "test"}})
+
     return StatsResponse(
         today=today_stats,
         yesterday=yesterday_stats,
         trends=trends,
         queue=queue_stats,
-        history=history_data
+        history=history_data,
+        today_hourly=today_hourly_data,
+        nodes=nodes_stats,
+        system_load=system_load,
+        total_scraped=total_scraped
     )

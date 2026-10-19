@@ -1,101 +1,193 @@
 <template>
   <div class="app-wrapper">
     <template v-if="isLoginPage">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <transition name="fade-transform" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </template>
     <el-container v-else class="main-container">
       <!-- Sidebar -->
       <el-aside :width="isCollapse ? '64px' : '240px'" class="sidebar">
-        <div class="logo-container">
-          <div class="logo-wrapper">
-            <svg class="logo-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <div class="logo-glow"></div>
+        <div class="sidebar-inner">
+          <div class="logo-container">
+            <div class="logo-wrapper">
+              <svg class="logo-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <div class="logo-glow"></div>
+            </div>
+            <span class="logo-text" v-if="!isCollapse">BrowserCluster</span>
           </div>
-          <span class="logo-text" v-if="!isCollapse">BrowserCluster</span>
+          
+          <div class="menu-wrapper">
+            <el-menu
+              :default-active="activeMenu"
+              class="el-menu-vertical"
+              :collapse="isCollapse"
+              @select="handleMenuSelect"
+              background-color="transparent"
+              text-color="#bfcbd9"
+              active-text-color="#409EFF"
+            >
+              <el-menu-item index="">
+                <el-icon><House /></el-icon>
+                <template #title>{{ $t('menu.home') }}</template>
+              </el-menu-item>
+              
+              <div class="menu-group-title" v-if="!isCollapse">采集任务</div>
+              <el-menu-item index="tasks">
+                <el-icon><List /></el-icon>
+                <template #title>{{ $t('menu.tasks') }}</template>
+              </el-menu-item>
+              <el-menu-item index="scrapers" v-if="isAdmin">
+                <el-icon><Compass /></el-icon>
+                <template #title>站点采集</template>
+              </el-menu-item>
+              <el-menu-item index="workflows" v-if="isAdmin">
+                <el-icon><Operation /></el-icon>
+                <template #title>流程编排</template>
+              </el-menu-item>
+              <el-menu-item index="schedules">
+                <el-icon><Timer /></el-icon>
+                <template #title>定时任务</template>
+              </el-menu-item>
+
+              <div class="menu-group-title" v-if="!isCollapse">资源与规则</div>
+              <el-menu-item index="rules" v-if="isAdmin">
+                <el-icon><Connection /></el-icon>
+                <template #title>网站配置</template>
+              </el-menu-item>
+              <el-menu-item index="proxies" v-if="isAdmin">
+                <el-icon><Service /></el-icon>
+                <template #title>{{ $t('menu.proxies') }}</template>
+              </el-menu-item>
+              <el-menu-item index="legacy-proxies" v-if="isAdmin">
+                <el-icon><Connection /></el-icon>
+                <template #title>{{ $t('menu.proxies') }} (legacy)</template>
+              </el-menu-item>
+              <el-menu-item index="cookies" v-if="isAdmin">
+                <el-icon><Key /></el-icon>
+                <template #title>Cookie 池</template>
+              </el-menu-item>
+
+              <div class="menu-group-title" v-if="!isCollapse">分析与统计</div>
+              <el-menu-item index="stats">
+                <el-icon><DataLine /></el-icon>
+                <template #title>{{ $t('menu.stats') }}</template>
+              </el-menu-item>
+
+              <div class="menu-group-title" v-if="!isCollapse">系统管理</div>
+              <el-menu-item index="nodes" v-if="isAdmin">
+                <el-icon><Monitor /></el-icon>
+                <template #title>{{ $t('menu.nodes') }}</template>
+              </el-menu-item>
+              <el-menu-item index="users" v-if="isAdmin">
+                <el-icon><User /></el-icon>
+                <template #title>{{ $t('menu.users') }}</template>
+              </el-menu-item>
+              <el-menu-item index="configs" v-if="isAdmin">
+                <el-icon><Setting /></el-icon>
+                <template #title>{{ $t('menu.configs') }}</template>
+              </el-menu-item>
+              <el-sub-menu index="agent-settings">
+                <template #title>
+                  <el-icon><MagicStick /></el-icon>
+                  <span>{{ $t('menu.agentSettings') }}</span>
+                </template>
+                <el-menu-item index="llm-models" v-if="isAdmin">
+                  <el-icon><Cpu /></el-icon>
+                  <template #title>{{ $t('menu.llmModels') }}</template>
+                </el-menu-item>
+                <el-menu-item index="prompt-templates">
+                  <el-icon><Document /></el-icon>
+                  <template #title>{{ $t('menu.promptTemplates') }}</template>
+                </el-menu-item>
+                <el-menu-item index="skills">
+                  <el-icon><Pointer /></el-icon>
+                  <template #title>{{ $t('menu.skills') }}</template>
+                </el-menu-item>
+                <el-menu-item index="skill-bundles">
+                  <el-icon><Collection /></el-icon>
+                  <template #title>{{ $t('menu.skillBundles') }}</template>
+                </el-menu-item>
+              </el-sub-menu>
+            </el-menu>
+          </div>
+
+          <div class="sidebar-footer" v-if="!isCollapse">
+            <div class="footer-card">
+              <div class="footer-stats">
+                <div class="stat-mini">
+                  <span class="dot" :class="stats.nodes?.active > 0 ? 'success' : 'warning'"></span>
+                  <span class="label">在线节点</span>
+                  <span class="val">{{ stats.nodes?.active || 0 }}/{{ stats.nodes?.total || 0 }}</span>
+                </div>
+                <div class="stat-mini">
+                  <span class="dot" :class="getLoadStatusClass(stats.system_load)"></span>
+                  <span class="label">系统负载</span>
+                  <span class="val">{{ stats.system_load || 0 }}%</span>
+                </div>
+              </div>
+              <div class="version-info">v1.2.0 Stable</div>
+            </div>
+          </div>
         </div>
-        
-        <el-menu
-          :default-active="activeMenu"
-          class="el-menu-vertical"
-          :collapse="isCollapse"
-          @select="handleMenuSelect"
-          background-color="#304156"
-          text-color="#bfcbd9"
-          active-text-color="#409EFF"
-        >
-          <el-menu-item index="">
-            <el-icon><House /></el-icon>
-            <template #title>{{ $t('menu.home') }}</template>
-          </el-menu-item>
-          <el-menu-item index="tasks">
-            <el-icon><List /></el-icon>
-            <template #title>{{ $t('menu.tasks') }}</template>
-          </el-menu-item>
-          <el-menu-item index="stats">
-            <el-icon><DataLine /></el-icon>
-            <template #title>{{ $t('menu.stats') }}</template>
-          </el-menu-item>
-          <el-menu-item index="nodes" v-if="isAdmin">
-            <el-icon><Monitor /></el-icon>
-            <template #title>{{ $t('menu.nodes') }}</template>
-          </el-menu-item>
-          <el-menu-item index="users" v-if="isAdmin">
-            <el-icon><User /></el-icon>
-            <template #title>{{ $t('menu.users') }}</template>
-          </el-menu-item>
-          <el-menu-item index="proxies">
-            <el-icon><Connection /></el-icon>
-            <template #title>{{ $t('menu.proxies') }}</template>
-          </el-menu-item>
-          <el-menu-item index="configs" v-if="isAdmin">
-            <el-icon><Setting /></el-icon>
-            <template #title>{{ $t('menu.configs') }}</template>
-          </el-menu-item>
-          <el-sub-menu index="agent-settings">
-            <template #title>
-              <el-icon><MagicStick /></el-icon>
-              <span>{{ $t('menu.agentSettings') }}</span>
-            </template>
-            <el-menu-item index="llm-models" v-if="isAdmin">
-              <el-icon><Cpu /></el-icon>
-              <template #title>{{ $t('menu.llmModels') }}</template>
-            </el-menu-item>
-            <el-menu-item index="prompt-templates">
-              <el-icon><Document /></el-icon>
-              <template #title>{{ $t('menu.promptTemplates') }}</template>
-            </el-menu-item>
-            <el-menu-item index="skills">
-              <el-icon><Pointer /></el-icon>
-              <template #title>{{ $t('menu.skills') }}</template>
-            </el-menu-item>
-            <el-menu-item index="skill-bundles">
-              <el-icon><Collection /></el-icon>
-              <template #title>{{ $t('menu.skillBundles') }}</template>
-            </el-menu-item>
-          </el-sub-menu>
-        </el-menu>
       </el-aside>
 
       <el-container class="content-container">
         <!-- Header -->
         <el-header class="header">
           <div class="header-left">
-            <el-icon class="collapse-btn" @click="isCollapse = !isCollapse">
+            <el-icon class="collapse-btn" @click="toggleCollapse">
               <Expand v-if="isCollapse" />
               <Fold v-else />
             </el-icon>
             <el-breadcrumb separator="/">
-              <el-breadcrumb-item>{{ $t('header.home') }}</el-breadcrumb-item>
-              <el-breadcrumb-item>{{ currentRouteName }}</el-breadcrumb-item>
+              <el-breadcrumb-item :to="{ path: '/' }">{{ $t('header.home') }}</el-breadcrumb-item>
+              <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="index" :to="item.path">
+                {{ item.title }}
+              </el-breadcrumb-item>
             </el-breadcrumb>
           </div>
           
           <div class="header-right">
+            <div class="header-actions">
+              <el-tooltip content="刷新统计" placement="bottom">
+                <el-icon class="action-btn" @click="refreshStats"><Refresh /></el-icon>
+              </el-tooltip>
+              <el-tooltip content="全屏" placement="bottom">
+                <el-icon class="action-btn" @click="toggleFullscreen"><FullScreen /></el-icon>
+              </el-tooltip>
+              <el-tooltip content="帮助文档" placement="bottom">
+                <el-icon class="action-btn" @click="openDocs"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </div>
+            
+            <el-divider direction="vertical" />
+            
             <div class="stats-overview">
+              <el-tooltip content="系统状态" placement="bottom">
+                <div class="stats-card-mini">
+                  <div class="stat-item" :class="stats.nodes?.active > 0 ? 'success' : 'warning'">
+                    <el-icon><Monitor /></el-icon>
+                    <span class="label">Nodes</span>
+                    <span class="value">{{ stats.nodes?.active || 0 }}</span>
+                  </div>
+                  <div class="stat-divider"></div>
+                  <div class="stat-item" :class="getLoadStatusClass(stats.system_load)">
+                    <el-icon><Cpu v-if="stats.system_load > 50" /><Odometer v-else /></el-icon>
+                    <span class="label">Load</span>
+                    <span class="value">{{ stats.system_load || 0 }}%</span>
+                  </div>
+                </div>
+              </el-tooltip>
+              
+              <el-divider direction="vertical" />
+
               <el-tooltip content="今日任务统计" placement="bottom">
                 <div class="stats-card-mini">
                   <div class="stat-item success">
@@ -108,6 +200,12 @@
                     <el-icon><CircleClose /></el-icon>
                     <span class="label">Failed</span>
                     <span class="value">{{ stats.today.failed }}</span>
+                  </div>
+                  <div class="stat-divider"></div>
+                  <div class="stat-item info">
+                    <el-icon><Operation /></el-icon>
+                    <span class="label">Workflows</span>
+                    <span class="value">{{ stats.workflows?.total || 0 }}</span>
                   </div>
                   <div class="stat-progress-wrapper">
                     <el-progress 
@@ -145,7 +243,9 @@
         <el-main class="main-content">
           <router-view v-slot="{ Component }">
             <transition name="fade-transform" mode="out-in">
-              <component :is="Component" />
+              <keep-alive>
+                <component :is="Component" />
+              </keep-alive>
             </transition>
           </router-view>
         </el-main>
@@ -158,20 +258,27 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { 
-  House, List, DataLine, Monitor, Setting, User, Cpu, Document, MagicStick,
-  Expand, Fold, CircleCheck, CircleClose, Pointer, Collection
+  House, List, DataLine, Monitor, Setting, User, Service, Timer, Connection, Compass, Key, Operation,
+  Expand, Fold, CircleCheck, CircleClose, Refresh, Cpu, Odometer,
+  QuestionFilled, FullScreen, Document, MagicStick, Pointer, Collection
 } from '@element-plus/icons-vue'
 import { useStatsStore } from './stores/stats'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const statsStore = useStatsStore()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
-const isCollapse = ref(false)
+const isCollapse = ref(localStorage.getItem('sidebarStatus') === 'collapsed')
+
+const toggleCollapse = () => {
+  isCollapse.value = !isCollapse.value
+  localStorage.setItem('sidebarStatus', isCollapse.value ? 'collapsed' : 'expanded')
+}
+
 const stats = computed(() => statsStore.stats)
 const currentUser = computed(() => authStore.user || {})
 const isAdmin = computed(() => authStore.isAdmin)
@@ -180,26 +287,67 @@ const isLoginPage = computed(() => route.path === '/login')
 const activeMenu = computed(() => {
   const path = route.path
   if (path === '/') return ''
-  return path.substring(1)
+  const parts = path.split('/').filter(p => p)
+  return parts[0]
 })
 
-const currentRouteName = computed(() => {
-  const path = route.path
-  if (path === '/') return t('menu.home')
-  const names = {
-    '/tasks': t('menu.tasks'),
-    '/stats': t('menu.stats'),
-    '/nodes': t('menu.nodes'),
-    '/configs': t('menu.configs'),
-    '/users': t('menu.users'),
-    '/llm-models': t('menu.llmModels'),
-    '/proxies': t('menu.proxies'),
-    '/skills': t('menu.skills'),
-    '/skill-bundles': t('menu.skillBundles'),
-    '/profile': t('header.profile')
+const breadcrumbs = computed(() => {
+  if (route.path === '/') return []
+  
+  const crumbs = []
+  
+  // 基础映射
+  const baseMap = {
+    'tasks': '任务管理',
+    'task-records': '采集记录',
+    'schedules': '定时任务',
+    'stats': '数据统计',
+    'configs': '系统设置',
+    'rules': '网站配置',
+    'scrapers': '站点采集',
+    'proxies': '代理管理',
+    'cookies': 'Cookie 池',
+    'nodes': '节点管理',
+    'users': '用户管理',
+    'workflows': '流程编排'
   }
-  return names[path] || 'Unknown'
+
+  const pathParts = route.path.split('/').filter(p => p)
+  
+  // 处理流程编排下的二级页面
+  if (pathParts[0] === 'workflows') {
+    crumbs.push({ title: '流程编排', path: '/workflows' })
+    if (pathParts[1] === 'edit') {
+      crumbs.push({ title: '流程编辑', path: route.fullPath })
+    } else if (pathParts[1] === 'results') {
+      crumbs.push({ title: '执行数据', path: route.fullPath })
+    }
+  } else {
+    // 处理其他页面
+    const title = route.meta?.title || baseMap[pathParts[0]] || '未知'
+    crumbs.push({ title, path: route.path })
+  }
+  
+  return crumbs
 })
+
+const refreshStats = () => {
+  statsStore.fetchStats()
+}
+
+const toggleFullscreen = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen()
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen()
+    }
+  }
+}
+
+const openDocs = () => {
+  window.open('https://github.com/934050259/BrowserCluster', '_blank')
+}
 
 const handleMenuSelect = (index) => {
   router.push('/' + index)
@@ -222,6 +370,12 @@ const getStatusColor = (success, total) => {
 const calculateSuccessRate = (success, total) => {
   if (!total) return 0
   return (success / total) * 100
+}
+
+const getLoadStatusClass = (load) => {
+  if (load > 80) return 'danger'
+  if (load > 50) return 'warning'
+  return 'success'
 }
 
 const handleCommand = (command) => {
@@ -262,75 +416,158 @@ body {
 /* Sidebar Styles */
 .sidebar {
   background-color: #304156;
-  height: 100%;
-  transition: width 0.3s;
+  color: #fff;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   box-shadow: 2px 0 6px rgba(0, 21, 41, 0.35);
   z-index: 1001;
+}
+
+.sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.menu-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.menu-wrapper::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
 .logo-container {
   height: 64px;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  background-color: #2b2f3a;
-  color: white;
   padding: 0 16px;
+  background: #2b3b4d;
   overflow: hidden;
-  gap: 12px;
+  white-space: nowrap;
 }
 
 .logo-wrapper {
   position: relative;
   width: 32px;
   height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin-right: 12px;
   flex-shrink: 0;
 }
 
 .logo-svg {
-  width: 28px;
-  height: 28px;
+  width: 100%;
+  height: 100%;
   color: #409EFF;
-  z-index: 2;
-  filter: drop-shadow(0 0 8px rgba(64, 158, 255, 0.4));
-  animation: logo-float 3s ease-in-out infinite;
 }
 
 .logo-glow {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 20px;
   height: 20px;
-  background: #409EFF;
-  filter: blur(15px);
-  opacity: 0.5;
-  z-index: 1;
-}
-
-@keyframes logo-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  background: rgba(64, 158, 255, 0.4);
+  filter: blur(10px);
+  border-radius: 50%;
+  z-index: -1;
 }
 
 .logo-text {
   font-size: 18px;
-  font-weight: 700;
-  white-space: nowrap;
-  background: linear-gradient(135deg, #fff 0%, #409EFF 100%);
+  font-weight: bold;
+  background: linear-gradient(120deg, #fff, #409EFF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  letter-spacing: 0.5px;
+}
+
+.menu-group-title {
+  padding: 16px 12px 8px;
+  font-size: 12px;
+  color: #e2ebf0;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 300;
+  opacity: 0.8;
 }
 
 .el-menu-vertical {
-  border: none !important;
+  border-right: none;
 }
 
-.el-menu-vertical:not(.el-menu--collapse) {
-  width: 240px;
+.el-menu-item {
+  height: 50px;
+  line-height: 50px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin: 4px 8px;
+  border-radius: 8px;
+  width: calc(100% - 16px);
+}
+
+.el-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+.el-menu-item.is-active {
+  background-color: #409EFF !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+}
+
+.el-menu--collapse .el-menu-item {
+  width: calc(100% - 16px);
+  margin: 4px 8px;
+}
+
+.sidebar-footer {
+  padding: 16px;
+  background: #2b3b4d;
+}
+
+.footer-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.footer-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stat-mini {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #bfcbd9;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.dot.success { background: #67C23A; box-shadow: 0 0 5px #67C23A; }
+.dot.warning { background: #E6A23C; box-shadow: 0 0 5px #E6A23C; }
+.dot.danger { background: #F56C6C; box-shadow: 0 0 5px #F56C6C; }
+
+.label { flex: 1; }
+.val { color: #fff; font-family: monospace; }
+
+.version-info {
+  font-size: 10px;
+  color: #c6cdd6;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 8px;
 }
 
 /* Header Styles */
@@ -353,17 +590,46 @@ body {
 .collapse-btn {
   font-size: 20px;
   cursor: pointer;
-  transition: color 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 8px;
+  border-radius: 4px;
 }
 
 .collapse-btn:hover {
+  background-color: #f5f7fa;
   color: #409EFF;
+  transform: scale(1.1);
 }
 
 .header-right {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.action-btn {
+  font-size: 18px;
+  color: #606266;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-btn:hover {
+  background-color: #f5f7fa;
+  color: #409EFF;
+  transform: translateY(-2px);
+}
+
+.action-btn:active {
+  transform: translateY(0) scale(0.95);
 }
 
 .stats-overview {
@@ -426,8 +692,8 @@ body {
 
 .rate-text {
   font-size: 10px;
-  font-weight: 700;
-  padding-right: 15px;
+  font-weight: 800;
+  padding-right: 16px;
   display: inline-block;
 }
 
@@ -436,14 +702,19 @@ body {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  padding: 0 8px;
+  padding: 4px 12px;
   height: 40px;
-  transition: background 0.3s;
-  border-radius: 4px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
 }
 
 .user-info:hover {
-  background-color: rgba(0, 0, 0, 0.025);
+  background-color: #f5f7fa;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.user-info:active {
+  transform: scale(0.98);
 }
 
 .username {
@@ -458,21 +729,23 @@ body {
 
 .main-content {
   padding: 20px;
+  position: relative;
+  overflow-x: hidden;
 }
 
-/* Transitions */
+/* Transitions - 优化切换流畅度 */
 .fade-transform-enter-active,
 .fade-transform-leave-active {
-  transition: all 0.5s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fade-transform-enter-from {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(-10px);
 }
 
 .fade-transform-leave-to {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateX(10px);
 }
 </style>

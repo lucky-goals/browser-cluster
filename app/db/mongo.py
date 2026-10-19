@@ -1,40 +1,58 @@
 """
 MongoDB 数据库连接管理模块
 
-提供 MongoDB 的单例连接管理，包含数据库连接、集合访问等功能
+提供 MongoDB 的单例连接管理、集合访问以及基础索引初始化。
 """
 
 from pymongo import MongoClient
+
 from app.core.config import settings
 
 
 class MongoDB:
-    """MongoDB 单例连接管理类"""
+    """MongoDB 单例连接管理类。"""
 
-    _instance = None  # 单例实例
-    _client = None  # MongoDB 客户端
-    _db = None  # 数据库实例
+    _instance = None
+    _client = None
+    _db = None
 
     def __new__(cls):
-        """实现单例模式"""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def connect(self):
-        """
-        连接到 MongoDB
+    def connect(self, force_reconnect: bool = False):
+        """建立连接，并在首次连接或切换数据库时初始化索引。"""
+        if self._client is None or force_reconnect:
+            if self._client is not None:
+                self._client.close()
+            self._client = MongoClient(
+                settings.mongo_uri,
+                serverSelectionTimeoutMS=5000,
+                socketTimeoutMS=10000,
+                heartbeatFrequencyMS=10000,
+            )
 
-        Returns:
-            Database: MongoDB 数据库实例
-        """
-        if self._client is None:
-            self._client = MongoClient(settings.mongo_uri)
+        if self._db is None or self._db.name != settings.mongo_db or force_reconnect:
             self._db = self._client[settings.mongo_db]
+            self._init_indexes()
         return self._db
 
-    def close(self):
-        """关闭 MongoDB 连接"""
+    def _init_indexes(self) -> None:
+        """初始化需要的查询索引。"""
+        try:
+            # 旧版本曾创建 domain 唯一索引，规则现在允许同域多条优先级规则。
+            self._db.parsing_rules.drop_index("domain_1")
+        except Exception:
+            pass
+        try:
+            self._db.parsing_rules.create_index([("domain", 1)])
+            self._db.parsing_rules.create_index([("priority", -1)])
+        except Exception:
+            # Mongo 不可用时保留延迟连接行为，索引会在下次连接时重试。
+            pass
+
+    def close(self) -> None:
         if self._client:
             self._client.close()
             self._client = None
@@ -42,106 +60,62 @@ class MongoDB:
 
     @property
     def db(self):
-        """
-        获取数据库实例，如果未连接则自动连接
-
-        Returns:
-            Database: MongoDB 数据库实例
-        """
         if self._db is None:
             self.connect()
         return self._db
 
     @property
     def tasks(self):
-        """
-        获取任务集合
-
-        Returns:
-            Collection: tasks 集合
-        """
         return self.db.tasks
 
     @property
     def task_stats(self):
-        """
-        获取任务统计集合
-
-        Returns:
-            Collection: task_stats 集合
-        """
         return self.db.task_stats
 
     @property
     def configs(self):
-        """
-        获取配置集合
-
-        Returns:
-            Collection: configs 集合
-        """
         return self.db.configs
 
     @property
-    def nodes(self):
-        """
-        获取节点集合
+    def parsing_rules(self):
+        return self.db.parsing_rules
 
-        Returns:
-            Collection: nodes 集合
-        """
+    @property
+    def nodes(self):
         return self.db.nodes
 
     @property
-    def llm_models(self):
-        """
-        获取 LLM 模型配置集合
+    def schedules(self):
+        return self.db.schedules
 
-        Returns:
-            Collection: llm_models 集合
-        """
+    @property
+    def users(self):
+        return self.db.users
+
+    @property
+    def scraper_executions(self):
+        return self.db.scraper_executions
+
+    # Fork-specific collections for LLM, prompt, skill and proxy management.
+    @property
+    def llm_models(self):
         return self.db.llm_models
 
     @property
     def prompt_templates(self):
-        """
-        获取提示词模板集合
-
-        Returns:
-            Collection: prompt_templates 集合
-        """
         return self.db.prompt_templates
 
     @property
     def proxies(self):
-        """
-        获取代理配置集合
-
-        Returns:
-            Collection: proxies 集合
-        """
         return self.db.proxies
 
     @property
     def skills(self):
-        """
-        获取技能配置集合
-
-        Returns:
-            Collection: skills 集合
-        """
         return self.db.skills
 
     @property
     def skill_bundles(self):
-        """
-        获取技能包配置集合
-
-        Returns:
-            Collection: skill_bundles 集合
-        """
         return self.db.skill_bundles
 
 
-# 全局 MongoDB 实例
 mongo = MongoDB()

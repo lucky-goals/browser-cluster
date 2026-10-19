@@ -16,6 +16,9 @@
             >
               <el-icon><DeleteFilled /></el-icon> {{ $t('tasks.batchDelete') }} ({{ selectedTasks.length }})
             </el-button>
+            <el-button type="success" plain @click="openBatchDialog">
+              <el-icon><DocumentCopy /></el-icon> 批量导入
+            </el-button>
             <el-button type="primary" @click="showScrapeDialog = true">
               <el-icon><Plus /></el-icon> {{ $t('tasks.createTask') }}
             </el-button>
@@ -184,6 +187,10 @@
               <el-tooltip :content="$t('tasks.detail.title')" placement="top">
                 <el-button circle size="small" :icon="View" @click="viewTask(row)" />
               </el-tooltip>
+
+              <el-tooltip content="获取 API 配置" placement="top">
+                <el-button circle size="small" type="info" :icon="DocumentCopy" @click="showApiConfig(row)" />
+              </el-tooltip>
               
               <el-tooltip :content="$t('tasks.messages.retryConfirm')" placement="top">
                 <el-button 
@@ -286,6 +293,12 @@
                 <!-- 加载策略 -->
                 <div class="config-section">
                   <div class="section-title">{{ $t('tasks.createDialog.browser.strategy') }}</div>
+                  <el-form-item label="浏览器引擎">
+                    <el-select v-model="scrapeForm.params.engine" style="width: 100%">
+                      <el-option label="Playwright (默认)" value="playwright" />
+                      <el-option label="DrissionPage (过盾强)" value="drissionpage" />
+                    </el-select>
+                  </el-form-item>
                   <el-form-item :label="$t('tasks.createDialog.browser.waitFor')">
                     <el-select v-model="scrapeForm.params.wait_for" style="width: 100%" :teleported="false">
                       <el-option label="Network Idle" value="networkidle" />
@@ -339,7 +352,116 @@
               </div>
             </el-tab-pane>
 
-            <!-- Tab 2: 高级选项 -->
+            <!-- Tab 2: upstream parser/storage controls kept alongside the fork agent workflow -->
+            <el-tab-pane name="runtime">
+              <template #label>
+                <div class="tab-label">
+                  <el-icon><Setting /></el-icon>
+                  <span>解析与存储</span>
+                </div>
+              </template>
+
+              <div class="tab-content-flex">
+                <div class="config-section">
+                  <div class="section-title">内容解析</div>
+                  <el-form-item label="解析模式">
+                    <el-select v-model="scrapeForm.params.parser" style="width: 100%">
+                      <el-option label="不解析（仅返回页面内容）" value="" />
+                      <el-option label="智能解析（GNE）" value="gne" />
+                      <el-option label="大模型提取（LLM）" value="llm" />
+                      <el-option label="自定义规则（XPath）" value="xpath" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="解析配置（JSON）">
+                    <el-input
+                      v-model="parserConfigText"
+                      type="textarea"
+                      :rows="5"
+                      spellcheck="false"
+                      placeholder='例如：{"fields":["title","content"]}'
+                    />
+                    <div class="form-tip">LLM 可填写 fields，XPath 可填写 rules；提交时会校验 JSON 格式。</div>
+                  </el-form-item>
+                </div>
+
+                <div class="config-section">
+                  <div class="section-title">Cookies 与结果</div>
+                  <el-form-item label="Cookie 来源">
+                    <el-radio-group v-model="cookieSourceType" size="small" @change="handleCookieSourceChange">
+                      <el-radio-button label="manual">手动输入</el-radio-button>
+                      <el-radio-button label="pool">Cookie 池</el-radio-button>
+                    </el-radio-group>
+                  </el-form-item>
+                  <el-form-item v-if="cookieSourceType === 'manual'" label="Cookies">
+                    <el-input
+                      v-model="scrapeForm.params.cookies"
+                      type="textarea"
+                      :rows="3"
+                      placeholder="输入 Cookies 字符串或 JSON 格式"
+                    />
+                  </el-form-item>
+                  <el-form-item v-else label="Cookie 池分组">
+                    <el-select
+                      v-model="scrapeForm.params.cookie_group"
+                      placeholder="选择或输入 Cookie 分组"
+                      clearable
+                      filterable
+                      allow-create
+                      style="width: 100%"
+                    >
+                      <el-option
+                        v-for="group in cookieGroups"
+                        :key="group"
+                        :label="group"
+                        :value="group"
+                      />
+                    </el-select>
+                    <div class="form-tip">任务会从该分组中选择可用账号。</div>
+                  </el-form-item>
+                  <div class="feature-cell standalone-feature">
+                    <span class="label">任务完成后返回 Cookies</span>
+                    <el-switch v-model="scrapeForm.params.return_cookies" size="small" />
+                  </div>
+                </div>
+
+                <div class="config-section">
+                  <div class="section-title">存储与重试</div>
+                  <el-form-item label="存储位置">
+                    <el-radio-group v-model="scrapeForm.params.storage_type" size="small">
+                      <el-radio-button label="mongo">MongoDB</el-radio-button>
+                      <el-radio-button label="oss">OSS 存储</el-radio-button>
+                    </el-radio-group>
+                  </el-form-item>
+                  <el-form-item v-if="scrapeForm.params.storage_type === 'mongo'" label="MongoDB 集合名">
+                    <el-input v-model="scrapeForm.params.mongo_collection" clearable placeholder="默认 tasks_results" />
+                  </el-form-item>
+                  <el-form-item v-else label="OSS 存储路径">
+                    <el-input v-model="scrapeForm.params.oss_path" clearable placeholder="默认 tasks/" />
+                  </el-form-item>
+                  <div class="feature-cell standalone-feature">
+                    <span class="label">保存 HTML 源码</span>
+                    <el-switch v-model="scrapeForm.params.save_html" size="small" />
+                  </div>
+                  <el-form-item label="User-Agent" style="margin-top: 14px">
+                    <el-input v-model="scrapeForm.params.user_agent" clearable placeholder="留空使用系统默认值" />
+                  </el-form-item>
+                  <el-row :gutter="15">
+                    <el-col :span="12">
+                      <el-form-item label="失败后自动重试">
+                        <el-switch v-model="scrapeForm.retry_enabled" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12" v-if="scrapeForm.retry_enabled">
+                      <el-form-item label="最大重试次数">
+                        <el-input-number v-model="scrapeForm.max_retries" :min="1" :max="10" style="width: 100%" />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+                </div>
+              </div>
+            </el-tab-pane>
+
+            <!-- Tab 3: 高级选项 -->
             <el-tab-pane name="proxy">
               <template #label>
                 <div class="tab-label">
@@ -351,15 +473,35 @@
               <div class="tab-content-flex">
                 <div class="config-section">
                   <div class="section-title">{{ $t('tasks.createDialog.advanced.proxy') }}</div>
+                  <el-form-item label="代理池分组">
+                    <el-select
+                      v-model="scrapeForm.params.proxy_pool_group"
+                      placeholder="不使用代理池"
+                      clearable
+                      filterable
+                      allow-create
+                      style="width: 100%"
+                      @change="handleProxyGroupChange"
+                    >
+                      <el-option
+                        v-for="group in proxyGroups"
+                        :key="group.name || group"
+                        :label="group.name ? `${group.name} (${group.active}/${group.total})` : group"
+                        :value="group.name || group"
+                      />
+                    </el-select>
+                    <div class="form-tip">使用代理池时，手动代理设置会被忽略。</div>
+                  </el-form-item>
                   <el-form-item :label="$t('tasks.createDialog.advanced.proxy') + ' (' + $t('tasks.createDialog.advanced.optional') + ')'" label-position="top">
                     <div style="display: flex; gap: 12px; width: 100%;">
-                      <el-input v-model="scrapeForm.params.proxy.server" :placeholder="$t('tasks.createDialog.advanced.proxyPlaceholder')" clearable style="flex: 1" />
+                      <el-input v-model="scrapeForm.params.proxy.server" :placeholder="$t('tasks.createDialog.advanced.proxyPlaceholder')" clearable style="flex: 1" :disabled="!!scrapeForm.params.proxy_pool_group" />
                       <el-button 
                         type="primary" 
                         plain 
                         :icon="Refresh" 
                         :loading="testingProxy"
                         @click="handleTestProxy"
+                        :disabled="!!scrapeForm.params.proxy_pool_group"
                         style="width: 100px"
                       >
                         {{ $t('tasks.createDialog.advanced.test') }}
@@ -369,6 +511,7 @@
                         plain 
                         :icon="Connection" 
                         @click="showProxySelector"
+                        :disabled="!!scrapeForm.params.proxy_pool_group"
                         style="width: 120px"
                       >
                         {{ $t('tasks.createDialog.advanced.pool') }}
@@ -378,12 +521,12 @@
                   <el-row :gutter="15" style="margin-top: 5px;">
                     <el-col :span="18">
                       <el-form-item :label="$t('tasks.createDialog.advanced.username')">
-                        <el-input v-model="scrapeForm.params.proxy.username" :placeholder="$t('tasks.createDialog.advanced.optional')" />
+                        <el-input v-model="scrapeForm.params.proxy.username" :placeholder="$t('tasks.createDialog.advanced.optional')" :disabled="!!scrapeForm.params.proxy_pool_group" />
                       </el-form-item>
                     </el-col>
                     <el-col :span="6">
                       <el-form-item :label="$t('tasks.createDialog.advanced.password')">
-                        <el-input v-model="scrapeForm.params.proxy.password" type="password" :placeholder="$t('tasks.createDialog.advanced.optional')" show-password />
+                        <el-input v-model="scrapeForm.params.proxy.password" type="password" :placeholder="$t('tasks.createDialog.advanced.optional')" show-password :disabled="!!scrapeForm.params.proxy_pool_group" />
                       </el-form-item>
                     </el-col>
                   </el-row>
@@ -659,6 +802,33 @@
       </template>
     </el-dialog>
 
+    <!-- Upstream batch submission dialog. It reuses the current form defaults so
+         both the fork's agent/skills workflow and the upstream batch endpoint
+         can be used from the same page. -->
+    <el-dialog v-model="showBatchDialog" title="批量导入任务" width="620px" destroy-on-close>
+      <el-form label-position="top">
+        <el-form-item label="URL 列表（每行一个）" required>
+          <el-input
+            v-model="batchUrlsText"
+            type="textarea"
+            :rows="10"
+            placeholder="https://example.com/1&#10;https://example.com/2"
+          />
+        </el-form-item>
+        <el-form-item label="任务优先级">
+          <el-select v-model="batchPriority" style="width: 180px">
+            <el-option label="高" :value="10" />
+            <el-option label="普通" :value="5" />
+            <el-option label="低" :value="1" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showBatchDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="submitBatch" :loading="batchSubmitting">开始导入</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 任务详情对话框 -->
     <el-dialog v-model="showTaskDialog" :title="$t('tasks.detail.title')" width="900px" top="5vh">
       <div v-if="currentTask" class="task-details">
@@ -909,6 +1079,14 @@
       </div>
     </el-dialog>
 
+    <el-dialog v-model="showApiConfigDialog" title="任务 API 配置" width="760px">
+      <el-input v-model="apiConfigJson" type="textarea" :rows="18" readonly />
+      <template #footer>
+        <el-button @click="showApiConfigDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="copyToClipboard(apiConfigJson)">复制 JSON</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 保存为模板对话框 -->
     <el-dialog v-model="showSaveTemplateDialogVisible" title="保存为模板" width="500px">
       <el-form :model="saveTemplateForm" label-width="80px">
@@ -1054,7 +1232,7 @@ import {
   Promotion,
   Picture, WarningFilled, Setting, Connection, MagicStick, Download, DocumentCopy, Grid, EditPen, Collection
 } from '@element-plus/icons-vue'
-import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, retryTask, deleteTasksBatch, getLLMModels, getPromptTemplates, createPromptTemplate, testProxy, getProxies, getSkillBundles, getSkills as getCustomSkills, getBuiltInSkills } from '../api'
+import { getTasks, deleteTask as deleteTaskApi, getTask, scrapeAsync, scrapeBatch, retryTask, deleteTasksBatch, getLLMModels, getPromptTemplates, createPromptTemplate, testProxy, getProxies, getProxyStats, getCookieStats, getSkillBundles, getSkills as getCustomSkills, getBuiltInSkills } from '../api'
 import dayjs from 'dayjs'
 
 const { t } = useI18n()
@@ -1067,6 +1245,10 @@ const selectedTasks = ref([])
 const testingProxy = ref(false)
 const builtInSkills = ref([])
 const customSkills = ref([])
+const proxyGroups = ref([])
+const cookieGroups = ref([])
+const cookieSourceType = ref('manual')
+const parserConfigText = ref(JSON.stringify({ fields: ['title', 'content'] }, null, 2))
 
 const handleTestProxy = async () => {
   if (!scrapeForm.value.params.proxy.server) {
@@ -1099,6 +1281,45 @@ const handleTestProxy = async () => {
     testingProxy.value = false
   }
 }
+
+const loadProxyGroups = async () => {
+  try {
+    const stats = await getProxyStats()
+    proxyGroups.value = stats?.groups_detail || stats?.groups || []
+  } catch (error) {
+    // The select remains createable when the pool service is unavailable.
+    console.error('Failed to load proxy groups:', error)
+  }
+}
+
+const loadCookieGroups = async () => {
+  try {
+    const stats = await getCookieStats()
+    cookieGroups.value = stats?.groups || []
+  } catch (error) {
+    // The select remains createable when the cookie service is unavailable.
+    console.error('Failed to load cookie groups:', error)
+  }
+}
+
+const handleCookieSourceChange = (source) => {
+  if (source === 'pool') {
+    scrapeForm.value.params.cookies = ''
+  } else {
+    scrapeForm.value.params.cookie_group = null
+  }
+}
+
+const handleProxyGroupChange = (group) => {
+  if (group) {
+    scrapeForm.value.params.proxy = {
+      server: '',
+      username: '',
+      password: ''
+    }
+  }
+}
+
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
@@ -1212,6 +1433,12 @@ const resetFilter = () => {
 }
 
 const showScrapeDialog = ref(false)
+const showBatchDialog = ref(false)
+const batchSubmitting = ref(false)
+const batchUrlsText = ref('')
+const batchPriority = ref(5)
+const showApiConfigDialog = ref(false)
+const apiConfigJson = ref('')
 const showTaskDialog = ref(false)
 const showRetryDialog = ref(false)
 const retryForm = ref({
@@ -1224,7 +1451,10 @@ const retryForm = ref({
 })
 const scrapeForm = ref({
   url: '',
+  retry_enabled: false,
+  max_retries: 0,
   params: {
+    engine: 'playwright',
     wait_for: 'networkidle',
     wait_time: 3000,
     timeout: 30000,
@@ -1243,7 +1473,17 @@ const scrapeForm = ref({
       username: '',
       password: ''
     },
+    proxy_pool_group: null,
+    cookies: '',
+    cookie_group: null,
+    return_cookies: false,
     stealth: true,
+    save_html: true,
+    storage_type: 'mongo',
+    mongo_collection: '',
+    oss_path: '',
+    parser: '',
+    parser_config: {},
     intercept_apis: [],
     intercept_continue: false,
     agent_enabled: false,
@@ -1324,6 +1564,16 @@ const deleteTask = async (taskId) => {
   }
 }
 
+const showApiConfig = (row) => {
+  apiConfigJson.value = JSON.stringify({
+    url: row.url,
+    params: row.params || {},
+    cache: row.cache || { enabled: true, ttl: 3600 },
+    priority: row.priority || 5
+  }, null, 2)
+  showApiConfigDialog.value = true
+}
+
 const confirmRetry = (row) => {
   retryForm.value = {
     taskId: row.task_id,
@@ -1366,6 +1616,95 @@ const viewTask = async (task) => {
   }
 }
 
+const openBatchDialog = () => {
+  batchUrlsText.value = ''
+  batchPriority.value = 5
+  showBatchDialog.value = true
+}
+
+const normalizeTaskParams = (params) => {
+  const normalized = JSON.parse(JSON.stringify(params || {}))
+
+  if (!normalized.user_agent) normalized.user_agent = null
+  if (!normalized.selector) normalized.selector = null
+  if (!normalized.intercept_apis?.length) normalized.intercept_apis = null
+  if (!normalized.viewport?.width || !normalized.viewport?.height) normalized.viewport = null
+  if (!normalized.interaction_steps?.length) normalized.interaction_steps = null
+
+  if (cookieSourceType.value === 'pool') {
+    normalized.cookies = null
+  } else {
+    normalized.cookie_group = null
+  }
+  if (!normalized.cookies) normalized.cookies = null
+  if (!normalized.cookie_group) normalized.cookie_group = null
+
+  if (normalized.proxy_pool_group) {
+    // A pool and a manually selected proxy are mutually exclusive in the worker.
+    normalized.proxy = null
+  } else if (!normalized.proxy?.server) {
+    normalized.proxy = null
+  } else {
+    if (!normalized.proxy.username) delete normalized.proxy.username
+    if (!normalized.proxy.password) delete normalized.proxy.password
+  }
+  if (!normalized.proxy_pool_group) normalized.proxy_pool_group = null
+
+  normalized.storage_type = normalized.storage_type || 'mongo'
+  if (!normalized.mongo_collection) normalized.mongo_collection = null
+  if (!normalized.oss_path) normalized.oss_path = null
+
+  if (normalized.parser) {
+    const parserConfig = parserConfigText.value.trim()
+    if (!parserConfig) {
+      normalized.parser_config = {}
+    } else {
+      try {
+        normalized.parser_config = JSON.parse(parserConfig)
+      } catch (error) {
+        throw new Error('解析配置必须是有效的 JSON')
+      }
+    }
+  } else {
+    normalized.parser_config = null
+  }
+  normalized.max_retries = Number(scrapeForm.value.max_retries || 0)
+  return normalized
+}
+
+const submitBatch = async () => {
+  const urls = batchUrlsText.value
+    .split(/\r?\n/)
+    .map(url => url.trim())
+    .filter(url => /^https?:\/\//i.test(url))
+
+  if (!urls.length) {
+    ElMessage.warning('请提供至少一个有效的 URL')
+    return
+  }
+
+  batchSubmitting.value = true
+  try {
+    const baseParams = normalizeTaskParams(scrapeForm.value.params)
+    const tasks = urls.map(url => ({
+      url,
+      params: JSON.parse(JSON.stringify(baseParams)),
+      cache: JSON.parse(JSON.stringify(scrapeForm.value.cache)),
+      priority: batchPriority.value,
+      retry_enabled: scrapeForm.value.retry_enabled,
+      max_retries: scrapeForm.value.max_retries
+    }))
+    await scrapeBatch({ tasks })
+    ElMessage.success(`成功提交 ${urls.length} 个批量任务`)
+    showBatchDialog.value = false
+    loadTasks()
+  } catch (error) {
+    ElMessage.error('批量提交失败: ' + (error.response?.data?.detail || error.message))
+  } finally {
+    batchSubmitting.value = false
+  }
+}
+
 const submitTask = async () => {
   if (!scrapeForm.value.url) {
     ElMessage.warning('请输入目标 URL')
@@ -1376,38 +1715,7 @@ const submitTask = async () => {
   try {
     // 深度克隆表单数据，避免修改原始数据
     const submitData = JSON.parse(JSON.stringify(scrapeForm.value))
-    
-    // 处理可选参数：如果为空则设置为 null，以匹配后端 Optional 类型
-    if (!submitData.params.user_agent) {
-      submitData.params.user_agent = null
-    }
-    if (!submitData.params.selector) {
-      submitData.params.selector = null
-    }
-    
-    // 代理配置处理
-    if (!submitData.params.proxy || !submitData.params.proxy.server) {
-      submitData.params.proxy = null
-    } else {
-      // 如果 server 存在但用户名/密码为空，也清理一下
-      if (!submitData.params.proxy.username) delete submitData.params.proxy.username
-      if (!submitData.params.proxy.password) delete submitData.params.proxy.password
-    }
-    
-    // 拦截配置处理
-    if (!submitData.params.intercept_apis || submitData.params.intercept_apis.length === 0) {
-      submitData.params.intercept_apis = null
-    }
-    
-    // 视口配置处理：如果宽高为 0 或无效，则设为 null 使用默认值
-    if (!submitData.params.viewport || !submitData.params.viewport.width || !submitData.params.viewport.height) {
-      submitData.params.viewport = null
-    }
-
-    // 交互步骤处理：如果为空则设为 null
-    if (!submitData.params.interaction_steps || submitData.params.interaction_steps.length === 0) {
-      submitData.params.interaction_steps = null
-    }
+    submitData.params = normalizeTaskParams(submitData.params)
     
     await scrapeAsync(submitData)
     ElMessage.success('任务提交成功 (异步)')
@@ -1426,7 +1734,10 @@ const submitTask = async () => {
 const resetForm = () => {
   scrapeForm.value = {
     url: '',
+    retry_enabled: false,
+    max_retries: 0,
     params: {
+      engine: 'playwright',
       wait_for: 'networkidle',
       wait_time: 3000,
       timeout: 30000,
@@ -1444,7 +1755,17 @@ const resetForm = () => {
         username: '',
         password: ''
       },
+      proxy_pool_group: null,
+      cookies: '',
+      cookie_group: null,
+      return_cookies: false,
       stealth: true,
+      save_html: true,
+      storage_type: 'mongo',
+      mongo_collection: '',
+      oss_path: '',
+      parser: '',
+      parser_config: {},
       intercept_apis: [],
       intercept_continue: false,
       agent_enabled: false,
@@ -1459,6 +1780,8 @@ const resetForm = () => {
     },
     priority: 1
   }
+  cookieSourceType.value = 'manual'
+  parserConfigText.value = JSON.stringify({ fields: ['title', 'content'] }, null, 2)
 }
 
 const getStatusType = (status) => {
@@ -1746,6 +2069,8 @@ onMounted(() => {
   loadLLMModels()
   loadAllTemplates()
   loadProxyPool()
+  loadProxyGroups()
+  loadCookieGroups()
   loadSkills()
   loadSkillBundles()
 })

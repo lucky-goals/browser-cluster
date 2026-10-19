@@ -58,13 +58,26 @@ class BrowserManager:
             Playwright: Playwright 实例
         """
         if self._playwright is None:
-            # Windows 诊断日志
+            # Windows 诊断
             if sys.platform == 'win32':
-                loop = asyncio.get_running_loop()
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = asyncio.get_event_loop()
+                
                 loop_type = type(loop).__name__
                 logger.info(f"Starting Playwright. Current loop type: {loop_type}")
+                
                 if loop_type != 'ProactorEventLoop':
-                    logger.error("CRITICAL: Playwright requires ProactorEventLoop on Windows, but found %s", loop_type)
+                    msg = (
+                        f"CRITICAL: Playwright requires ProactorEventLoop on Windows, but current loop is {loop_type}. "
+                        "Subprocess spawning will fail. Please ensure WindowsProactorEventLoopPolicy is set at the "
+                        "very beginning of the application entry point."
+                    )
+                    logger.error(msg)
+                    # 虽然不能在这里修复已经运行的 loop，但可以尝试抛出异常，让用户意识到配置错误
+                    if not settings.debug:  # 生产环境下抛出异常，防止僵尸进程
+                        raise RuntimeError(msg)
             
             self._playwright = await async_playwright().start()
         return self._playwright
@@ -86,7 +99,23 @@ class BrowserManager:
         Returns:
             Browser: 浏览器实例
         """
-        if self._browser is None or not self._browser.is_connected():
+        # 增加更严格的存活检查
+        is_healthy = False
+        if self._browser and self._browser.is_connected():
+            try:
+                # 尝试创建一个临时的上下文来验证浏览器是否真正可用（处理僵尸进程）
+                temp_context = await self._browser.new_context()
+                await temp_context.close()
+                is_healthy = True
+            except Exception as e:
+                logger.warning(f"Browser connection check failed, will recreate: {e}")
+                try:
+                    await self._browser.close()
+                except:
+                    pass
+                self._browser = None
+
+        if not is_healthy:
             playwright = await self.get_playwright()
 
             # 浏览器类型映射
@@ -119,6 +148,7 @@ class BrowserManager:
                 ])
 
             # 启动浏览器
+            logger.info(f"Launching new {settings.browser_type} browser instance...")
             self._browser = await browser_type.launch(
                 headless=settings.headless,
                 args=launch_args
@@ -135,19 +165,29 @@ class BrowserManager:
         Returns:
             Page: 浏览器页面实例
         """
-        browser = await self.get_browser()
-        return await browser.new_page()
+        try:
+            browser = await self.get_browser()
+            return await browser.new_page()
+        except Exception as e:
+            logger.error(f"Failed to create new page, browser might be dead: {e}")
+            # 如果创建页面失败，强制清理浏览器实例，下次调用 get_browser 会重启
+            self._browser = None
+            # 再次尝试（get_browser 会重建）
+            browser = await self.get_browser()
+            return await browser.new_page()
 
     async def check_idle_browser(self):
         """
         检查浏览器是否长时间空闲，如果是则关闭浏览器，释放内存
         """
         if self._browser and self._browser.is_connected():
+            # 如果还有打开的上下文或页面，可能不应该直接关闭整个浏览器
+            # 但为了简单释放内存，这里按照闲置时间逻辑处理
             current_time = time.time()
             idle_time = current_time - self._last_used_time
             
             if idle_time > settings.browser_idle_timeout:
-                logger.info(f"Browser has been idle for {idle_time:.1f} seconds, closing to free memory")
+                logger.info(f"Playwright browser idle for {int(idle_time)}s, closing...")
                 await self.close_browser()
 
     async def close_browser(self):

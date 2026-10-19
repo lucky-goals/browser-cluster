@@ -9,7 +9,7 @@ from typing import Optional
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Depends, Query
 
-from app.models.proxy import (
+from app.models.legacy_proxy import (
     ProxyCreate,
     ProxyUpdate,
     ProxyResponse,
